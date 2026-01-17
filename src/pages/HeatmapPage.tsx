@@ -1,11 +1,14 @@
 import { MapContainer, TileLayer, ZoomControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useProperties, type PropertyFilters } from "@/hooks/useProperties";
+import { useOutcodeStats } from "@/hooks/useOutcodeStats";
 import HeatmapLayer from "@/components/HeatmapLayer";
 import MarkerLayer from "@/components/MarkerLayer";
 import ClusterLayer from "@/components/ClusterLayer";
+import MapController from "@/components/MapController";
+import AreaFilterDropdown from "@/components/AreaFilterDropdown";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Flame, MapPin, Grid3X3 } from "lucide-react";
 
 // Southwark centre coordinates
@@ -18,11 +21,30 @@ export default function HeatmapPage() {
   // State for view mode
   const [viewMode, setViewMode] = useState<ViewMode>("heatmap");
 
-  // State for filters (will be expanded in future stories)
-  const [filters] = useState<PropertyFilters>({});
+  // State for area filter
+  const [selectedArea, setSelectedArea] = useState<string | null>(null);
+
+  // Fetch outcode stats for the dropdown
+  const { data: outcodeStats = [], isLoading: isStatsLoading } = useOutcodeStats();
+
+  // Build filters based on selected area
+  const filters = useMemo<PropertyFilters>(
+    () => ({
+      outcode: selectedArea,
+    }),
+    [selectedArea]
+  );
 
   // Fetch properties based on filters
   const { data: properties = [], isLoading } = useProperties(filters);
+
+  // Get the coordinates for the selected area (for zooming)
+  const selectedAreaCoords = useMemo(() => {
+    if (!selectedArea) return null;
+    const area = outcodeStats.find((a) => a.outcode === selectedArea);
+    if (!area) return null;
+    return [area.lat, area.lon] as [number, number];
+  }, [selectedArea, outcodeStats]);
 
   return (
     <div className="h-[calc(100vh-72px)] w-full relative">
@@ -71,6 +93,16 @@ export default function HeatmapPage() {
         </div>
       </div>
 
+      {/* Area Filter */}
+      <div className="absolute top-4 right-4 z-[1000]">
+        <AreaFilterDropdown
+          areas={outcodeStats}
+          selectedArea={selectedArea}
+          onAreaChange={setSelectedArea}
+          isLoading={isStatsLoading}
+        />
+      </div>
+
       {isLoading && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/90 px-4 py-2 rounded-lg shadow-md text-sm text-[#627083]">
           Loading properties...
@@ -87,6 +119,7 @@ export default function HeatmapPage() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <ZoomControl position="topleft" />
+        <MapController center={selectedAreaCoords} />
         {properties.length > 0 && viewMode === "heatmap" && (
           <HeatmapLayer properties={properties} />
         )}
