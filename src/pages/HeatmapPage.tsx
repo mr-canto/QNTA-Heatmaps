@@ -3,6 +3,7 @@ import "leaflet/dist/leaflet.css";
 import { useProperties, type PropertyFilters } from "@/hooks/useProperties";
 import { useOutcodeStats } from "@/hooks/useOutcodeStats";
 import { useImports } from "@/hooks/useImports";
+import { useQueryErrorHandler } from "@/hooks/useQueryErrorHandler";
 import HeatmapLayer from "@/components/HeatmapLayer";
 import MarkerLayer from "@/components/MarkerLayer";
 import ClusterLayer from "@/components/ClusterLayer";
@@ -71,10 +72,13 @@ export default function HeatmapPage() {
   }, []);
 
   // Fetch all imports for the snapshot selector
-  const { data: imports = [] } = useImports();
+  const importsQuery = useImports();
+  const imports = importsQuery.data ?? [];
 
   // Fetch outcode stats for the dropdown
-  const { data: outcodeStats = [], isLoading: isStatsLoading } = useOutcodeStats();
+  const statsQuery = useOutcodeStats();
+  const outcodeStats = statsQuery.data ?? [];
+  const isStatsLoading = statsQuery.isLoading;
 
   // Get the selected import details for banner
   const selectedImport = useMemo(() => {
@@ -95,7 +99,29 @@ export default function HeatmapPage() {
   );
 
   // Fetch properties based on filters
-  const { data: properties = [], isLoading } = useProperties(filters);
+  const propertiesQuery = useProperties(filters);
+  const properties = propertiesQuery.data ?? [];
+  const isLoading = propertiesQuery.isLoading;
+
+  // Error handlers with retry functionality
+  useQueryErrorHandler({
+    error: propertiesQuery.error,
+    isError: propertiesQuery.isError,
+    refetch: propertiesQuery.refetch,
+    context: "property data",
+  });
+  useQueryErrorHandler({
+    error: statsQuery.error,
+    isError: statsQuery.isError,
+    refetch: statsQuery.refetch,
+    context: "area statistics",
+  });
+  useQueryErrorHandler({
+    error: importsQuery.error,
+    isError: importsQuery.isError,
+    refetch: importsQuery.refetch,
+    context: "import snapshots",
+  });
 
   // Get the coordinates for the selected area (for zooming)
   const selectedAreaCoords = useMemo(() => {

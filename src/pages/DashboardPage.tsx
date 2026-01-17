@@ -3,6 +3,7 @@ import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useTopAreas } from "@/hooks/useTopAreas";
 import { useMultiVisitHotspot } from "@/hooks/useMultiVisitHotspot";
 import { useBiggestIncrease } from "@/hooks/useBiggestIncrease";
+import { useQueryErrorHandler } from "@/hooks/useQueryErrorHandler";
 import {
   Card,
   CardContent,
@@ -32,10 +33,45 @@ function getFirstName(email: string | undefined, fullName?: string): string {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { data: stats, isLoading: isStatsLoading } = useDashboardStats();
-  const { data: topAreas, isLoading: isTopAreasLoading } = useTopAreas();
-  const { data: hotspot, isLoading: isHotspotLoading } = useMultiVisitHotspot();
-  const { data: biggestIncrease, isLoading: isIncreaseLoading } = useBiggestIncrease();
+  const statsQuery = useDashboardStats();
+  const topAreasQuery = useTopAreas();
+  const hotspotQuery = useMultiVisitHotspot();
+  const increaseQuery = useBiggestIncrease();
+
+  // Error handlers with retry functionality
+  useQueryErrorHandler({
+    error: statsQuery.error,
+    isError: statsQuery.isError,
+    refetch: statsQuery.refetch,
+    context: "dashboard statistics",
+  });
+  useQueryErrorHandler({
+    error: topAreasQuery.error,
+    isError: topAreasQuery.isError,
+    refetch: topAreasQuery.refetch,
+    context: "top areas",
+  });
+  useQueryErrorHandler({
+    error: hotspotQuery.error,
+    isError: hotspotQuery.isError,
+    refetch: hotspotQuery.refetch,
+    context: "hotspot data",
+  });
+  useQueryErrorHandler({
+    error: increaseQuery.error,
+    isError: increaseQuery.isError,
+    refetch: increaseQuery.refetch,
+    context: "trend data",
+  });
+
+  const stats = statsQuery.data;
+  const isStatsLoading = statsQuery.isLoading;
+  const topAreas = topAreasQuery.data;
+  const isTopAreasLoading = topAreasQuery.isLoading;
+  const hotspot = hotspotQuery.data;
+  const isHotspotLoading = hotspotQuery.isLoading;
+  const biggestIncrease = increaseQuery.data;
+  const isIncreaseLoading = increaseQuery.isLoading;
   const firstName = getFirstName(
     user?.email,
     user?.user_metadata?.full_name || user?.user_metadata?.name

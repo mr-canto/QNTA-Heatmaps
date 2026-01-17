@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -205,6 +206,11 @@ export default function ImportPage() {
       } catch (err) {
         const message = err instanceof Error ? err.message : "Geocoding failed";
         setFileError({ type: "geocoding", message });
+        toast.error("Geocoding failed", {
+          description: message.includes("fetch")
+            ? "Unable to connect to the geocoding service. Please check your internet connection."
+            : message,
+        });
         setIsImporting(false);
         return;
       }
@@ -218,10 +224,9 @@ export default function ImportPage() {
 
       // Check if all properties failed geocoding
       if (geocodingResult.geocodedProperties.length === 0) {
-        setFileError({
-          type: "geocoding",
-          message: "No properties could be geocoded. Please check the postcodes in your file.",
-        });
+        const errorMsg = "No properties could be geocoded. Please check the postcodes in your file.";
+        setFileError({ type: "geocoding", message: errorMsg });
+        toast.error("Import failed", { description: errorMsg });
         setIsImporting(false);
         return;
       }
@@ -235,10 +240,9 @@ export default function ImportPage() {
       );
 
       if (!importResult.success) {
-        setFileError({
-          type: "database",
-          message: importResult.error || "Failed to save import to database",
-        });
+        const errorMsg = importResult.error || "Failed to save import to database";
+        setFileError({ type: "database", message: errorMsg });
+        toast.error("Import failed", { description: errorMsg });
         setIsImporting(false);
         return;
       }
@@ -255,6 +259,11 @@ export default function ImportPage() {
       setImportSuccess({
         propertiesImported: importResult.propertiesImported,
         excludedCount: combinedExcluded.length,
+      });
+
+      // Show success toast
+      toast.success("Import completed", {
+        description: `Successfully imported ${importResult.propertiesImported.toLocaleString()} properties.`,
       });
 
       // Clear file state but keep success message

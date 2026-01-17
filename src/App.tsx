@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import { queryClient } from "@/lib/queryClient";
+import { Toaster } from "@/components/ui/sonner";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
 import HeatmapPage from "@/pages/HeatmapPage";
@@ -28,6 +29,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </BrowserRouter>
+          <Toaster position="top-right" richColors closeButton />
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
