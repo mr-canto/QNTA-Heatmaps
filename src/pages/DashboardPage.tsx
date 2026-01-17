@@ -15,6 +15,7 @@ import VisitBreakdownPanel from "@/components/VisitBreakdownPanel";
 import TopAreasChart from "@/components/TopAreasChart";
 import MultiVisitHotspotCard from "@/components/MultiVisitHotspotCard";
 import BiggestIncreaseCard from "@/components/BiggestIncreaseCard";
+import QuickActionsRow from "@/components/QuickActionsRow";
 
 function getFirstName(email: string | undefined, fullName?: string): string {
   if (fullName) {
@@ -150,18 +151,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
-            {/* Placeholder content for action buttons (US-012) */}
-            <div className="flex flex-wrap gap-4 min-h-[60px]">
-              <div className="flex items-center justify-center rounded-lg bg-[#f4f7f6] border border-[#dce3e7] px-6 py-3">
-                <p className="text-[#8996a5] text-sm">View Heatmap</p>
-              </div>
-              <div className="flex items-center justify-center rounded-lg bg-[#f4f7f6] border border-[#dce3e7] px-6 py-3">
-                <p className="text-[#8996a5] text-sm">Import Data</p>
-              </div>
-              <div className="flex items-center justify-center rounded-lg bg-[#f4f7f6] border border-[#dce3e7] px-6 py-3">
-                <p className="text-[#8996a5] text-sm">Export Data</p>
-              </div>
-            </div>
+            <QuickActionsRow />
           </CardContent>
         </Card>
       </div>
