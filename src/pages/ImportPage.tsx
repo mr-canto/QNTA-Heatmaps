@@ -3,15 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Upload, FileSpreadsheet, X, AlertCircle, CheckCircle } from "lucide-react";
-import * as XLSX from "xlsx";
-import Papa from "papaparse";
-
-interface ParsedData {
-  rows: Record<string, string>[];
-  totalRows: number;
-  uniqueAddresses: number;
-  hasAddressColumn: boolean;
-}
+import {
+  parseFile,
+  type ParseResult,
+  type ParseError,
+  type DeduplicatedProperty,
+} from "@/lib/importProcessor";
 
 interface FileError {
   type: "size" | "format" | "noAddress" | "parse";
@@ -23,12 +20,15 @@ const PREVIEW_ROWS = 100;
 
 export default function ImportPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [parsedData, setParsedData] = useState<ParsedData | null>(null);
+  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [fileError, setFileError] = useState<FileError | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Store parsed properties for import processing
+  const [parsedProperties, setParsedProperties] = useState<DeduplicatedProperty[]>([]);
 
   const validateFile = useCallback((file: File): FileError | null => {
     if (file.size > MAX_FILE_SIZE) {
@@ -43,104 +43,11 @@ export default function ImportPage() {
     return null;
   }, []);
 
-  const parseExcelFile = useCallback(async (file: File): Promise<ParsedData> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = e.target?.result;
-          const workbook = XLSX.read(data, { type: "array" });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, {
-            defval: "",
-            raw: false,
-          });
-
-          // Check for Address column (case-insensitive)
-          const firstRow = jsonData[0] || {};
-          const columns = Object.keys(firstRow);
-          const addressColumn = columns.find(
-            (col) => col.toLowerCase() === "address"
-          );
-
-          if (!addressColumn) {
-            reject({ type: "noAddress", message: "No Address column found in file" });
-            return;
-          }
-
-          // Count unique addresses
-          const addressSet = new Set<string>();
-          jsonData.forEach((row) => {
-            const address = row[addressColumn]?.toString().trim();
-            if (address) {
-              addressSet.add(address.toLowerCase());
-            }
-          });
-
-          resolve({
-            rows: jsonData.slice(0, PREVIEW_ROWS),
-            totalRows: jsonData.length,
-            uniqueAddresses: addressSet.size,
-            hasAddressColumn: true,
-          });
-        } catch {
-          reject({ type: "parse", message: "Failed to parse file. Please check the file format." });
-        }
-      };
-      reader.onerror = () => {
-        reject({ type: "parse", message: "Failed to read file" });
-      };
-      reader.readAsArrayBuffer(file);
-    });
-  }, []);
-
-  const parseCsvFile = useCallback(async (file: File): Promise<ParsedData> => {
-    return new Promise((resolve, reject) => {
-      Papa.parse<Record<string, string>>(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          const jsonData = results.data;
-
-          // Check for Address column (case-insensitive)
-          const columns = results.meta.fields || [];
-          const addressColumn = columns.find(
-            (col) => col.toLowerCase() === "address"
-          );
-
-          if (!addressColumn) {
-            reject({ type: "noAddress", message: "No Address column found in file" });
-            return;
-          }
-
-          // Count unique addresses
-          const addressSet = new Set<string>();
-          jsonData.forEach((row) => {
-            const address = row[addressColumn]?.toString().trim();
-            if (address) {
-              addressSet.add(address.toLowerCase());
-            }
-          });
-
-          resolve({
-            rows: jsonData.slice(0, PREVIEW_ROWS),
-            totalRows: jsonData.length,
-            uniqueAddresses: addressSet.size,
-            hasAddressColumn: true,
-          });
-        },
-        error: () => {
-          reject({ type: "parse", message: "Failed to parse CSV file" });
-        },
-      });
-    });
-  }, []);
-
   const handleFile = useCallback(
     async (file: File) => {
       setFileError(null);
-      setParsedData(null);
+      setParseResult(null);
+      setParsedProperties([]);
       setSelectedFile(file);
       setIsProcessing(true);
       setProcessingProgress(10);
@@ -155,27 +62,20 @@ export default function ImportPage() {
 
       try {
         setProcessingProgress(30);
-        const extension = file.name.split(".").pop()?.toLowerCase();
-        let data: ParsedData;
-
-        if (extension === "csv") {
-          data = await parseCsvFile(file);
-        } else {
-          data = await parseExcelFile(file);
-        }
-
+        const result = await parseFile(file);
         setProcessingProgress(100);
-        setParsedData(data);
+        setParseResult(result);
+        setParsedProperties(result.properties);
       } catch (err) {
-        const error = err as FileError;
-        setFileError(error);
+        const error = err as ParseError;
+        setFileError({ type: error.type, message: error.message });
         setSelectedFile(null);
       } finally {
         setIsProcessing(false);
         setProcessingProgress(0);
       }
     },
-    [validateFile, parseExcelFile, parseCsvFile]
+    [validateFile]
   );
 
   const handleDrop = useCallback(
@@ -213,7 +113,8 @@ export default function ImportPage() {
 
   const handleCancel = useCallback(() => {
     setSelectedFile(null);
-    setParsedData(null);
+    setParseResult(null);
+    setParsedProperties([]);
     setFileError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -221,9 +122,10 @@ export default function ImportPage() {
   }, []);
 
   const handleConfirm = useCallback(() => {
-    // TODO: Implement actual import processing in US-027a/b/c and US-028
+    // TODO: Implement actual import processing in US-027b/c and US-028
     console.log("Import confirmed for file:", selectedFile?.name);
-  }, [selectedFile]);
+    console.log("Properties to import:", parsedProperties.length);
+  }, [selectedFile, parsedProperties]);
 
   return (
     <main className="pt-[72px] min-h-screen bg-[#f7f9fb]">
@@ -288,7 +190,7 @@ export default function ImportPage() {
             )}
 
             {/* Preview Section */}
-            {parsedData && !isProcessing && (
+            {parseResult && !isProcessing && (
               <div className="mt-6">
                 {/* Success Message */}
                 <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg mb-6">
@@ -298,8 +200,8 @@ export default function ImportPage() {
                       File parsed successfully
                     </p>
                     <p className="text-sm text-green-700">
-                      {parsedData.totalRows.toLocaleString()} rows found,{" "}
-                      {parsedData.uniqueAddresses.toLocaleString()} unique addresses
+                      {parseResult.totalRows.toLocaleString()} rows found,{" "}
+                      {parseResult.uniqueAddresses.toLocaleString()} unique addresses
                     </p>
                   </div>
                 </div>
@@ -308,16 +210,16 @@ export default function ImportPage() {
                 <div className="border border-[#dce3e7] rounded-lg overflow-hidden">
                   <div className="bg-[#f7f9fb] px-4 py-2 border-b border-[#dce3e7]">
                     <span className="text-sm font-medium text-[#627083]">
-                      Preview (first {Math.min(PREVIEW_ROWS, parsedData.rows.length)} of{" "}
-                      {parsedData.totalRows.toLocaleString()} rows)
+                      Preview (first {Math.min(PREVIEW_ROWS, parseResult.previewRows.length)} of{" "}
+                      {parseResult.totalRows.toLocaleString()} rows)
                     </span>
                   </div>
                   <div className="overflow-x-auto max-h-[300px]">
                     <table className="w-full text-sm">
                       <thead className="bg-[#f7f9fb] sticky top-0">
                         <tr>
-                          {parsedData.rows[0] &&
-                            Object.keys(parsedData.rows[0]).map((col) => (
+                          {parseResult.previewRows[0] &&
+                            Object.keys(parseResult.previewRows[0]).map((col) => (
                               <th
                                 key={col}
                                 className="px-4 py-2 text-left font-medium text-[#627083] border-b border-[#dce3e7]"
@@ -328,7 +230,7 @@ export default function ImportPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {parsedData.rows.map((row, idx) => (
+                        {parseResult.previewRows.map((row, idx) => (
                           <tr
                             key={idx}
                             className="border-b border-[#eef2f1] hover:bg-[#f7f9fb]"
