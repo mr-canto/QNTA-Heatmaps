@@ -529,3 +529,26 @@ Implemented full responsive layout for the Heatmap page matching the design spec
 - Overlay backdrop with pointer-events handles click-to-close on mobile
 - AreaStatsPanel embedded mode renders content without Card wrapper for integration
 - Slider thumb size increased to 24px on mobile for better touch targets
+
+## 2026-01-17 - US-032: Error States and Recovery
+
+### Implementation Summary
+Added comprehensive error handling with user-friendly messages and recovery options. Created Sonner toast notifications via ShadCN component for displaying errors with retry buttons. Added errorUtils library for converting technical errors to user-friendly messages. Created useQueryErrorHandler hook that automatically shows toast notifications for failed queries with optional retry functionality. Updated DashboardPage and HeatmapPage to use error handlers for all data queries. Enhanced LoginPage with inline form validation (email format, password length) and user-friendly auth error messages. Added toast notifications to ImportPage for geocoding errors and import success. Session expiry errors automatically redirect to login page.
+
+### Files Modified
+- src/App.tsx (added Toaster component)
+- src/components/ui/sonner.tsx (new - ShadCN component)
+- src/lib/errorUtils.ts (new)
+- src/hooks/useQueryErrorHandler.ts (new)
+- src/pages/DashboardPage.tsx (added error handling for all queries)
+- src/pages/HeatmapPage.tsx (added error handling for properties, stats, imports)
+- src/pages/LoginPage.tsx (added inline validation and user-friendly errors)
+- src/pages/ImportPage.tsx (added toast notifications)
+
+### Learnings
+- Sonner provides richColors prop for automatic success/error coloring
+- useRef for toast IDs enables dismissing previous toasts to avoid duplicates
+- Authentication errors detected by keywords: jwt, token, auth, session, expired
+- Supabase auth errors like "Invalid login credentials" need friendly translation
+- Form validation should clear field errors on input change for better UX
+- Network errors detected by "failed to fetch" in error message
