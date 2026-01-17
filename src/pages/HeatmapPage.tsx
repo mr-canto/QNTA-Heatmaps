@@ -8,6 +8,7 @@ import ClusterLayer from "@/components/ClusterLayer";
 import MapController from "@/components/MapController";
 import AreaFilterDropdown from "@/components/AreaFilterDropdown";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { useState, useMemo } from "react";
 import { Flame, MapPin, Grid3X3 } from "lucide-react";
 
@@ -28,16 +29,20 @@ export default function HeatmapPage() {
   // State for visit type filter
   const [visitType, setVisitType] = useState<VisitType>("all");
 
+  // State for minimum visits filter
+  const [minVisits, setMinVisits] = useState(1);
+
   // Fetch outcode stats for the dropdown
   const { data: outcodeStats = [], isLoading: isStatsLoading } = useOutcodeStats();
 
-  // Build filters based on selected area and visit type
+  // Build filters based on selected area, visit type, and min visits
   const filters = useMemo<PropertyFilters>(
     () => ({
       outcode: selectedArea,
       visitType: visitType,
+      minVisits: minVisits,
     }),
-    [selectedArea, visitType]
+    [selectedArea, visitType, minVisits]
   );
 
   // Fetch properties based on filters
@@ -137,6 +142,30 @@ export default function HeatmapPage() {
           >
             Multi Visit
           </Button>
+        </div>
+      </div>
+
+      {/* Minimum Visits Slider */}
+      <div className="absolute top-28 left-4 z-[1000] bg-white rounded-[10px] border border-[#dce3e7] shadow-[0_6px_16px_rgba(15,23,42,0.08)] p-3 w-[200px]">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#627083]">
+            Min Visits
+          </span>
+          <span className="bg-[#d9eceb] text-[#0b4d4f] px-2.5 py-0.5 rounded-full text-xs font-semibold tabular-nums">
+            {minVisits === 10 ? "10+" : minVisits}
+          </span>
+        </div>
+        <Slider
+          value={[minVisits]}
+          onValueChange={(value) => setMinVisits(value[0])}
+          min={1}
+          max={10}
+          step={1}
+          className="[&_[data-slot=slider-track]]:bg-[#eef2f1] [&_[data-slot=slider-range]]:bg-[#0f5d5e] [&_[data-slot=slider-thumb]]:border-[#0f5d5e] [&_[data-slot=slider-thumb]]:w-[18px] [&_[data-slot=slider-thumb]]:h-[18px]"
+        />
+        <div className="flex justify-between text-[10px] text-[#8996a5] mt-1">
+          <span>1</span>
+          <span>10+</span>
         </div>
       </div>
 
