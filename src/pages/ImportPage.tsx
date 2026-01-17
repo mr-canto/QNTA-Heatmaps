@@ -4,6 +4,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Upload,
   FileSpreadsheet,
@@ -27,6 +36,7 @@ import {
 } from "@/lib/importProcessor";
 import { saveImportToDatabase } from "@/lib/importService";
 import { useAuth } from "@/hooks/useAuth";
+import { useImports } from "@/hooks/useImports";
 
 interface FileError {
   type: "size" | "format" | "noAddress" | "parse" | "noValidAddresses" | "geocoding" | "database";
@@ -45,6 +55,7 @@ export default function ImportPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { data: imports = [], isLoading: isImportsLoading } = useImports();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
@@ -588,6 +599,66 @@ export default function ImportPage() {
                   </div>
                 )}
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Import History Table */}
+        <Card className="mt-6 shadow-[0_6px_16px_rgba(15,23,42,0.08)] border-[#dce3e7]">
+          <CardHeader className="border-b border-[#dce3e7]">
+            <CardTitle className="text-lg text-[#1f2a37]">Import History</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {isImportsLoading ? (
+              <div className="p-6 text-center text-[#627083]">Loading imports...</div>
+            ) : imports.length === 0 ? (
+              <div className="p-6 text-center text-[#627083]">No imports yet</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#f7f9fb]">
+                    <TableHead className="font-medium text-[#627083]">Date</TableHead>
+                    <TableHead className="font-medium text-[#627083]">Filename</TableHead>
+                    <TableHead className="font-medium text-[#627083] text-right">Records</TableHead>
+                    <TableHead className="font-medium text-[#627083]">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {imports.map((imp) => (
+                    <TableRow
+                      key={imp.id}
+                      className={imp.is_current ? "bg-[#d9eceb]/30" : ""}
+                    >
+                      <TableCell className="text-[#1f2a37]">
+                        {new Date(imp.uploaded_at).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </TableCell>
+                      <TableCell className="text-[#1f2a37] max-w-[200px] truncate">
+                        {imp.filename}
+                      </TableCell>
+                      <TableCell className="text-[#1f2a37] text-right tabular-nums">
+                        {imp.record_count.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        {imp.is_current ? (
+                          <Badge className="bg-[#0f5d5e] hover:bg-[#0b4d4f] text-white">
+                            Current
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[#627083] border-[#dce3e7]">
+                            Historical
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
