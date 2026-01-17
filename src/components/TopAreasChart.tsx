@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { TopArea } from "@/hooks/useTopAreas";
+import type { TopArea } from "@/hooks/useTopAreas";
 
 interface TopAreasChartProps {
   areas: TopArea[];
