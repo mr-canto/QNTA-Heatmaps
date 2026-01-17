@@ -1,5 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useTopAreas } from "@/hooks/useTopAreas";
 import {
   Card,
   CardContent,
@@ -9,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import PropertiesDonutChart from "@/components/PropertiesDonutChart";
 import VisitBreakdownPanel from "@/components/VisitBreakdownPanel";
+import TopAreasChart from "@/components/TopAreasChart";
 
 function getFirstName(email: string | undefined, fullName?: string): string {
   if (fullName) {
@@ -26,6 +28,7 @@ function getFirstName(email: string | undefined, fullName?: string): string {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { data: stats, isLoading: isStatsLoading } = useDashboardStats();
+  const { data: topAreas, isLoading: isTopAreasLoading } = useTopAreas();
   const firstName = getFirstName(
     user?.email,
     user?.user_metadata?.full_name || user?.user_metadata?.name
@@ -105,12 +108,14 @@ export default function DashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
-                {/* Placeholder content for Top 5 Areas, Multi-Visit Hotspot, Biggest Increase (US-009, US-010, US-011) */}
+                {/* Top 5 Areas, Multi-Visit Hotspot, Biggest Increase (US-009, US-010, US-011) */}
                 <div className="space-y-4 min-h-[280px]">
-                  <div className="flex items-center justify-center rounded-lg bg-[#f4f7f6] border border-[#dce3e7] p-4 h-[120px]">
-                    <p className="text-[#8996a5] text-sm text-center">
-                      Top 5 areas chart will display here
-                    </p>
+                  {/* Top 5 Areas Chart (US-009) */}
+                  <div className="rounded-lg bg-[#f4f7f6] border border-[#dce3e7] p-4">
+                    <TopAreasChart
+                      areas={topAreas ?? []}
+                      isLoading={isTopAreasLoading}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex items-center justify-center rounded-lg bg-[#f4f7f6] border border-[#dce3e7] p-4 h-[80px]">
