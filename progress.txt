@@ -301,3 +301,231 @@ Created AreaFilterDropdown component using ShadCN Select to allow filtering by p
 - map.flyTo() provides smooth animated transition to new coordinates
 - ShadCN Select component uses Radix UI primitives for accessible dropdown
 - Outcode stats table includes lat/lon for centroid of each area, enabling zoom-to functionality
+
+## 2026-01-17 - US-019: Visit Type Filter
+
+### Implementation Summary
+Added visit type toggle filter with All, Single Visit, and Multi Visit options. Filter state integrated with useProperties hook to filter properties by visit count. Buttons styled with teal accent for single visits and coral for multi visits to match the design system colour coding.
+
+### Files Modified
+- src/pages/HeatmapPage.tsx (added visit type state and toggle buttons)
+
+### Learnings
+- visitType filter in useProperties uses "single" for visit_count === 1 and "multi" for visit_count > 1
+- Multiple filters (area + visitType) can be combined in the filters object for compound filtering
+- Consistent colour coding (teal/coral) helps users understand the data categorization
+
+## 2026-01-17 - US-020: Minimum Visits Slider
+
+### Implementation Summary
+Added minimum visits slider using ShadCN Slider component (Radix UI). Slider ranges from 1 to 10+ with current value displayed in badge. Map updates in real-time as slider moves. Value of 10 is treated as "10+" (10 or more visits) in the filter logic.
+
+### Files Modified
+- src/components/ui/slider.tsx (new - ShadCN component)
+- src/pages/HeatmapPage.tsx (added minVisits state and slider UI)
+- package.json (added @radix-ui/react-slider dependency)
+
+### Learnings
+- ShadCN Slider uses Radix UI primitives with data-slot attributes for styling
+- Slider value is an array (for range support) - use value[0] for single thumb
+- minVisits filter in useProperties uses gte (>=) comparison
+- 10+ indicator achieved by comparing value === 10 and displaying "10+" text
+
+## 2026-01-17 - US-021: Heatmap Statistics Header
+
+### Implementation Summary
+Created HeatmapStatsHeader component that displays filtered property counts at the top of the heatmap page. Shows total properties, single visit count, and multi visit count. Statistics are computed from the filtered properties array using useMemo for performance. Styled with teal background to match the design system.
+
+### Files Modified
+- src/components/HeatmapStatsHeader.tsx (new)
+- src/pages/HeatmapPage.tsx (integrated stats header and adjusted control positions)
+
+### Learnings
+- useMemo ensures stats are only recalculated when properties array changes
+- Stats header is positioned with z-index 999 to stay below map controls (1000)
+- Adjusted top positioning of all map controls to account for stats header height
+- tabular-nums class ensures consistent number width for cleaner display
+
+## 2026-01-17 - US-022: Area Statistics Panel
+
+### Implementation Summary
+Created AreaStatsPanel component that displays all areas with visit counts and visual progress bars. Clicking an area filters the map to that area (zoom + filter), clicking again deselects. Replaced the simpler AreaFilterDropdown with this more informative panel. Uses ShadCN Card component for the container.
+
+### Files Modified
+- src/components/AreaStatsPanel.tsx (new)
+- src/pages/HeatmapPage.tsx (replaced AreaFilterDropdown with AreaStatsPanel)
+
+### Learnings
+- Calculating max visits for bar width proportional scaling
+- Click toggle pattern: clicking selected item passes null to deselect
+- ShadCN Card provides CardHeader and CardContent for structured layouts
+- Overflow handling with max-h and overflow-y-auto for long lists
+
+## 2026-01-17 - US-023: Search by Address or Postcode
+
+### Implementation Summary
+Added search input field using ShadCN Input component. Search filters properties by both address and postcode using ilike with wildcards. Results update in real-time as user types. Clear button (X icon) appears when search has text and resets the search term.
+
+### Files Modified
+- src/pages/HeatmapPage.tsx (added searchTerm state and search input UI)
+
+### Learnings
+- useProperties hook already had searchTerm filter using Supabase or() for multi-field search
+- Controlled input with onChange updates search term as user types
+- Conditional rendering for clear button only when searchTerm is non-empty
+- Relative positioning for clear button inside input container
+
+## 2026-01-17 - US-024: Export Filtered Data
+
+### Implementation Summary
+Added export button that downloads filtered property data as CSV. Uses blob URL creation for client-side CSV generation. Filename includes current date. CSV includes address, postcode, outcode, and visit_count columns. Button displays current filtered count and is disabled when no data.
+
+### Files Modified
+- src/pages/HeatmapPage.tsx (added exportToCSV function and button UI)
+
+### Learnings
+- useCallback memoizes export function to prevent unnecessary recreations
+- Blob with text/csv MIME type triggers proper CSV download
+- URL.createObjectURL creates temporary URL for blob download
+- Address field escaped with double quotes to handle commas in addresses
+
+## 2026-01-17 - US-025: Historical Snapshot Selector
+
+### Implementation Summary
+Added historical snapshot selector allowing users to view heatmap data from previous imports. Created useImports hook to fetch all import snapshots from the imports table. Added dropdown selector positioned in the top-right corner with "Current" as default option. When viewing historical data, an amber banner appears indicating the snapshot date. The importId filter is passed through to useProperties to load the selected snapshot's data.
+
+### Files Modified
+- src/hooks/useImports.ts (new)
+- src/pages/HeatmapPage.tsx (added snapshot selector, import state, and historical banner)
+
+### Learnings
+- useImports fetches all imports ordered by uploaded_at descending; is_current field identifies current snapshot
+- importId filter in useProperties already supported via existing filter interface
+- Amber banner uses bg-amber-500 for warning/historical indicator per standard UI patterns
+- useMemo for selectedImport lookup prevents unnecessary recalculations
+
+## 2026-01-17 - US-026: Data Import Page
+
+### Implementation Summary
+Created ImportPage component at /import route with drag-and-drop file upload functionality. Supports Excel (.xlsx, .xls) via xlsx library and CSV via papaparse. Validates file size (10MB limit) and format, checks for required Address column. Shows preview of first 100 rows with total count and unique address statistics. Includes progress bar during processing and error messages for validation failures.
+
+### Files Modified
+- src/pages/ImportPage.tsx (new)
+- src/components/ui/progress.tsx (new - ShadCN component)
+- src/App.tsx (added /import route)
+- package.json (added papaparse and @types/papaparse)
+
+### Learnings
+- XLSX library's sheet_to_json converts to Record<string, string> with header row as keys
+- Papa.parse with header: true returns data with column headers as keys
+- FileReader.readAsArrayBuffer for XLSX, direct file for Papa.parse
+- Drag events require preventDefault to enable drop functionality
+
+## 2026-01-17 - US-027a: Import File Parsing and Validation
+
+### Implementation Summary
+Created importProcessor utility library with functions for parsing Excel and CSV files. Implements address deduplication by normalizing addresses (trim, collapse whitespace) and counting occurrences as visit count. Case-insensitive column detection for Address (required) and Postcode (optional). Updated ImportPage to use centralized parsing logic and store parsed properties for subsequent processing.
+
+### Files Modified
+- src/lib/importProcessor.ts (new)
+- src/pages/ImportPage.tsx (refactored to use importProcessor)
+
+### Learnings
+- Address normalization: trim + collapse multiple spaces prevents duplicate detection issues
+- Map-based deduplication tracks first non-null postcode for each unique address
+- ParseResult contains both raw preview rows and deduplicated properties array
+- Keeping parsed properties in state allows multi-step processing workflow
+
+## 2026-01-17 - US-027b: Postcode Extraction and Validation
+
+### Implementation Summary
+Added UK postcode extraction and validation to the import processor. Uses regex pattern to extract postcodes from address text first, falls back to postcode column if not found. Derives outcode from full postcode. Properties without valid postcodes are excluded and displayed in a collapsible warning panel. Shows error if all addresses are invalid.
+
+### Files Modified
+- src/lib/importProcessor.ts (added postcode functions and validateProperties)
+- src/pages/ImportPage.tsx (added validation step and excluded addresses display)
+
+### Learnings
+- UK postcode regex: /([A-Z]{1,2}[0-9][0-9A-Z]?)\s*([0-9][A-Z]{2})/i handles variable spacing
+- Outcode is first part of postcode before space (e.g., "SE15" from "SE15 2JZ")
+- Two-step validation: first extract, then validate format
+- Collapsible panel with toggle state for excluded addresses list
+
+## 2026-01-17 - US-028: Import Geocoding
+
+### Implementation Summary
+Added geocoding functionality using Postcodes.io bulk API. The geocodePostcodes function batches requests in groups of 100 (API limit) and returns a map of postcode to coordinates. The geocodeProperties function extracts unique postcodes to minimize API calls, geocodes them, and maps results back to properties. Properties that fail geocoding are excluded with a detailed reason.
+
+### Files Modified
+- src/lib/importProcessor.ts (added geocoding interfaces and functions)
+
+### Learnings
+- Postcodes.io bulk endpoint accepts POST with { postcodes: [...] } and returns array of results
+- Each result has query (original postcode) and result (null if not found, or object with lat/lon)
+- Extract unique postcodes first to avoid redundant API calls
+- Normalize postcode format (uppercase, single space) for consistent map key lookup
+
+## 2026-01-17 - US-027c: Import Database Operations
+
+### Implementation Summary
+Created importService library with saveImportToDatabase function that handles the complete database import workflow. Marks previous import as not current, creates new import record, inserts properties in batches of 500, and calculates outcode statistics. Updated ImportPage to integrate the full pipeline: parse -> validate -> geocode -> save to database. Shows progress during import and displays success message with link to heatmap. Invalidates React Query caches after successful import.
+
+### Files Modified
+- src/lib/importService.ts (new)
+- src/pages/ImportPage.tsx (integrated full import flow)
+
+### Learnings
+- Batch property inserts (500 at a time) to avoid memory issues with large datasets
+- Calculate outcode statistics using centroid averaging for lat/lon
+- OUTCODE_AREA_MAP provides human-readable names for Southwark area codes
+- Rollback by deleting import record if property batch fails
+- Invalidate multiple query keys to refresh dashboard, heatmap, and imports list
+
+## 2026-01-17 - US-029: Import History List
+
+### Implementation Summary
+Added import history table to the Import page below the file upload section. Displays all past imports with date/time, filename, record count, and status. Current import is highlighted with teal background and "Current" badge; historical imports show "Historical" badge. Uses ShadCN Table and Badge components. Imports are sorted by most recent first (handled by useImports hook).
+
+### Files Modified
+- src/pages/ImportPage.tsx (added history table)
+- src/components/ui/table.tsx (new - ShadCN component)
+- src/components/ui/badge.tsx (new - ShadCN component)
+
+### Learnings
+- ShadCN Badge component supports variants: "default" (solid) and "outline" for different states
+- toLocaleDateString with hour/minute options provides readable datetime format
+- TableRow className can apply background highlighting for current import
+
+## 2026-01-17 - US-030: Loading States
+
+### Implementation Summary
+Added ShadCN Skeleton component and updated AreaStatsPanel to use skeleton loaders. Verified that all dashboard components already implement loading states: PropertiesDonutChart (animated circle placeholder), VisitBreakdownPanel (skeleton bars), TopAreasChart (skeleton horizontal bars), MultiVisitHotspotCard and BiggestIncreaseCard (skeleton content). HeatmapPage shows loading indicator during property fetch, and ImportPage shows progress bars during processing.
+
+### Files Modified
+- src/components/AreaStatsPanel.tsx (added skeleton loaders)
+- src/components/ui/skeleton.tsx (new - ShadCN component)
+
+### Learnings
+- ShadCN Skeleton is just a styled div with animate-pulse class
+- Skeleton loaders should match the shape and size of real content
+- Loading states already integrated in most components via isLoading props
+- Consistent pattern: check isLoading first, show skeleton, then show content
+
+## 2026-01-17 - US-031: Responsive Layout
+
+### Implementation Summary
+Implemented full responsive layout for the Heatmap page matching the design specifications in docs/heatmap-design.css. Added mobile toggle buttons that appear at <768px to open/close controls and info panels. Controls panel slides in from left, info panel slides in from right with 0.3s ease transitions. Created embedded mode for AreaStatsPanel to render inside the info panel drawer. Added responsive breakpoints: desktop >1024px (280px panels), tablet 768-1024px (240px panels), mobile <768px (slide-out drawers), small mobile <480px (full-width panels). Added heatmap legend positioned bottom-right on desktop, bottom-center on mobile.
+
+### Files Modified
+- src/pages/HeatmapPage.tsx (major refactor: consolidated controls into panel, added mobile state, toggle buttons, overlay)
+- src/components/AreaStatsPanel.tsx (added embedded mode prop for integration with info panel)
+- src/components/HeatmapStatsHeader.tsx (added responsive font sizing and layout)
+- src/components/TopAreasChart.tsx (fixed type import)
+
+### Learnings
+- Tailwind max-md: prefix targets screens below 768px (mobile breakpoint)
+- isMobile state tracked via window.innerWidth for conditional mobile-only behavior
+- Mobile panels use fixed positioning with transform: translateX for slide animations
+- Overlay backdrop with pointer-events handles click-to-close on mobile
+- AreaStatsPanel embedded mode renders content without Card wrapper for integration
+- Slider thumb size increased to 24px on mobile for better touch targets
