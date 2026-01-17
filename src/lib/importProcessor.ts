@@ -20,6 +20,20 @@ export interface ValidatedProperty {
   visitCount: number;
 }
 
+export interface GeocodedProperty {
+  address: string;
+  postcode: string;
+  outcode: string;
+  lat: number;
+  lon: number;
+  visitCount: number;
+}
+
+export interface GeocodingResult {
+  geocodedProperties: GeocodedProperty[];
+  excludedProperties: ExcludedProperty[];
+}
+
 export interface ExcludedProperty {
   address: string;
   reason: string;
@@ -313,4 +327,139 @@ export function validateProperties(
   }
 
   return { validProperties, excludedProperties };
+}
+
+/**
+ * Geocoding batch size for Postcodes.io API.
+ */
+const GEOCODING_BATCH_SIZE = 100;
+
+/**
+ * Postcodes.io bulk lookup response structure.
+ */
+interface PostcodesIoResult {
+  query: string;
+  result: {
+    postcode: string;
+    latitude: number;
+    longitude: number;
+    outcode: string;
+  } | null;
+}
+
+interface PostcodesIoResponse {
+  status: number;
+  result: PostcodesIoResult[];
+}
+
+/**
+ * Geocode an array of postcodes using Postcodes.io bulk lookup API.
+ * Returns a map of postcode -> {lat, lon} for successful lookups.
+ */
+async function geocodePostcodes(
+  postcodes: string[]
+): Promise<Map<string, { lat: number; lon: number }>> {
+  const results = new Map<string, { lat: number; lon: number }>();
+
+  // Process in batches of 100 (Postcodes.io limit)
+  for (let i = 0; i < postcodes.length; i += GEOCODING_BATCH_SIZE) {
+    const batch = postcodes.slice(i, i + GEOCODING_BATCH_SIZE);
+
+    try {
+      const response = await fetch("https://api.postcodes.io/postcodes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ postcodes: batch }),
+      });
+
+      if (!response.ok) {
+        // API error - skip this batch but continue
+        console.error(`Postcodes.io API error: ${response.status}`);
+        continue;
+      }
+
+      const data: PostcodesIoResponse = await response.json();
+
+      for (const item of data.result) {
+        if (item.result) {
+          results.set(item.query.toUpperCase().replace(/\s+/g, " "), {
+            lat: item.result.latitude,
+            lon: item.result.longitude,
+          });
+        }
+      }
+    } catch (error) {
+      // Network error - skip this batch but continue
+      console.error("Geocoding batch failed:", error);
+      continue;
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Geocode validated properties using Postcodes.io API.
+ * Properties that fail geocoding are excluded.
+ *
+ * @param properties - Validated properties with postcodes
+ * @param onProgress - Optional callback for progress updates (0-100)
+ * @returns Geocoded properties and excluded properties
+ */
+export async function geocodeProperties(
+  properties: ValidatedProperty[],
+  onProgress?: (progress: number) => void
+): Promise<GeocodingResult> {
+  const geocodedProperties: GeocodedProperty[] = [];
+  const excludedProperties: ExcludedProperty[] = [];
+
+  // Get unique postcodes to minimize API calls
+  const uniquePostcodes = [...new Set(properties.map((p) => p.postcode))];
+
+  if (uniquePostcodes.length === 0) {
+    return { geocodedProperties: [], excludedProperties: [] };
+  }
+
+  // Report initial progress
+  onProgress?.(0);
+
+  // Geocode all unique postcodes
+  const geocodeMap = await geocodePostcodes(uniquePostcodes);
+
+  // Check if geocoding service was completely unavailable
+  if (geocodeMap.size === 0 && uniquePostcodes.length > 0) {
+    throw new Error("Geocoding service unavailable. Please try again later.");
+  }
+
+  // Report progress after geocoding
+  onProgress?.(80);
+
+  // Match geocoded results to properties
+  for (const prop of properties) {
+    const normalizedPostcode = prop.postcode.toUpperCase().replace(/\s+/g, " ");
+    const coords = geocodeMap.get(normalizedPostcode);
+
+    if (coords) {
+      geocodedProperties.push({
+        address: prop.address,
+        postcode: prop.postcode,
+        outcode: prop.outcode,
+        lat: coords.lat,
+        lon: coords.lon,
+        visitCount: prop.visitCount,
+      });
+    } else {
+      excludedProperties.push({
+        address: prop.address,
+        reason: `Geocoding failed for postcode: ${prop.postcode}`,
+      });
+    }
+  }
+
+  // Report completion
+  onProgress?.(100);
+
+  return { geocodedProperties, excludedProperties };
 }
