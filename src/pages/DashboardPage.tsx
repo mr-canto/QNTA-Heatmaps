@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
 import {
   Card,
   CardContent,
@@ -6,6 +7,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import PropertiesDonutChart from "@/components/PropertiesDonutChart";
 
 function getFirstName(email: string | undefined, fullName?: string): string {
   if (fullName) {
@@ -22,6 +24,7 @@ function getFirstName(email: string | undefined, fullName?: string): string {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { data: stats, isLoading: isStatsLoading } = useDashboardStats();
   const firstName = getFirstName(
     user?.email,
     user?.user_metadata?.full_name || user?.user_metadata?.name
@@ -65,13 +68,17 @@ export default function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              {/* Placeholder content for future charts/stats (US-007, US-008) */}
+              {/* Charts and stats grid (US-007, US-008) */}
               <div className="grid md:grid-cols-2 gap-6 min-h-[200px]">
+                {/* Properties Donut Chart (US-007) */}
                 <div className="flex items-center justify-center rounded-lg bg-[#f4f7f6] border border-[#dce3e7] p-6">
-                  <p className="text-[#8996a5] text-sm">
-                    Properties chart will display here
-                  </p>
+                  <PropertiesDonutChart
+                    singleVisitCount={stats?.singleVisitCount ?? 0}
+                    multiVisitCount={stats?.multiVisitCount ?? 0}
+                    isLoading={isStatsLoading}
+                  />
                 </div>
+                {/* Visit Breakdown Panel placeholder (US-008) */}
                 <div className="flex items-center justify-center rounded-lg bg-[#f4f7f6] border border-[#dce3e7] p-6">
                   <p className="text-[#8996a5] text-sm">
                     Visit breakdown will display here
