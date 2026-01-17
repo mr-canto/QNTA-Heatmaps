@@ -1,17 +1,27 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileSpreadsheet, X, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  Upload,
+  FileSpreadsheet,
+  X,
+  AlertCircle,
+  CheckCircle,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import {
   parseFile,
+  validateProperties,
   type ParseResult,
   type ParseError,
-  type DeduplicatedProperty,
+  type ValidationResult,
 } from "@/lib/importProcessor";
 
 interface FileError {
-  type: "size" | "format" | "noAddress" | "parse";
+  type: "size" | "format" | "noAddress" | "parse" | "noValidAddresses";
   message: string;
 }
 
@@ -21,16 +31,15 @@ const PREVIEW_ROWS = 100;
 export default function ImportPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [fileError, setFileError] = useState<FileError | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [showExcluded, setShowExcluded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Store parsed properties for import processing
-  const [parsedProperties, setParsedProperties] = useState<DeduplicatedProperty[]>([]);
-
-  const validateFile = useCallback((file: File): FileError | null => {
+  const validateFileSize = useCallback((file: File): FileError | null => {
     if (file.size > MAX_FILE_SIZE) {
       return { type: "size", message: "File exceeds 10MB limit" };
     }
@@ -47,25 +56,43 @@ export default function ImportPage() {
     async (file: File) => {
       setFileError(null);
       setParseResult(null);
-      setParsedProperties([]);
+      setValidationResult(null);
+      setShowExcluded(false);
       setSelectedFile(file);
       setIsProcessing(true);
       setProcessingProgress(10);
 
-      const validationError = validateFile(file);
-      if (validationError) {
-        setFileError(validationError);
+      const sizeError = validateFileSize(file);
+      if (sizeError) {
+        setFileError(sizeError);
         setSelectedFile(null);
         setIsProcessing(false);
         return;
       }
 
       try {
+        // Step 1: Parse file
         setProcessingProgress(30);
         const result = await parseFile(file);
-        setProcessingProgress(100);
         setParseResult(result);
-        setParsedProperties(result.properties);
+
+        // Step 2: Validate and extract postcodes
+        setProcessingProgress(70);
+        const validation = validateProperties(result.properties);
+
+        // Check if all addresses are invalid
+        if (validation.validProperties.length === 0) {
+          setFileError({
+            type: "noValidAddresses",
+            message: "No valid addresses found. All addresses are missing valid UK postcodes.",
+          });
+          setSelectedFile(null);
+          setIsProcessing(false);
+          return;
+        }
+
+        setValidationResult(validation);
+        setProcessingProgress(100);
       } catch (err) {
         const error = err as ParseError;
         setFileError({ type: error.type, message: error.message });
@@ -75,7 +102,7 @@ export default function ImportPage() {
         setProcessingProgress(0);
       }
     },
-    [validateFile]
+    [validateFileSize]
   );
 
   const handleDrop = useCallback(
@@ -114,18 +141,31 @@ export default function ImportPage() {
   const handleCancel = useCallback(() => {
     setSelectedFile(null);
     setParseResult(null);
-    setParsedProperties([]);
+    setValidationResult(null);
     setFileError(null);
+    setShowExcluded(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   }, []);
 
   const handleConfirm = useCallback(() => {
-    // TODO: Implement actual import processing in US-027b/c and US-028
+    // TODO: Implement geocoding and database import in US-027c and US-028
     console.log("Import confirmed for file:", selectedFile?.name);
-    console.log("Properties to import:", parsedProperties.length);
-  }, [selectedFile, parsedProperties]);
+    console.log("Valid properties:", validationResult?.validProperties.length);
+    console.log("Excluded properties:", validationResult?.excludedProperties.length);
+  }, [selectedFile, validationResult]);
+
+  // Summary stats
+  const stats = useMemo(() => {
+    if (!parseResult || !validationResult) return null;
+    return {
+      totalRows: parseResult.totalRows,
+      uniqueAddresses: parseResult.uniqueAddresses,
+      validCount: validationResult.validProperties.length,
+      excludedCount: validationResult.excludedProperties.length,
+    };
+  }, [parseResult, validationResult]);
 
   return (
     <main className="pt-[72px] min-h-screen bg-[#f7f9fb]">
@@ -189,66 +229,127 @@ export default function ImportPage() {
               </div>
             )}
 
-            {/* Preview Section */}
-            {parseResult && !isProcessing && (
+            {/* Validation Results */}
+            {stats && !isProcessing && (
               <div className="mt-6">
                 {/* Success Message */}
-                <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg mb-6">
+                <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
                   <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-green-800">
-                      File parsed successfully
+                      File validated successfully
                     </p>
                     <p className="text-sm text-green-700">
-                      {parseResult.totalRows.toLocaleString()} rows found,{" "}
-                      {parseResult.uniqueAddresses.toLocaleString()} unique addresses
+                      {stats.totalRows.toLocaleString()} rows,{" "}
+                      {stats.validCount.toLocaleString()} properties ready to import
                     </p>
                   </div>
                 </div>
 
-                {/* Preview Table */}
-                <div className="border border-[#dce3e7] rounded-lg overflow-hidden">
-                  <div className="bg-[#f7f9fb] px-4 py-2 border-b border-[#dce3e7]">
-                    <span className="text-sm font-medium text-[#627083]">
-                      Preview (first {Math.min(PREVIEW_ROWS, parseResult.previewRows.length)} of{" "}
-                      {parseResult.totalRows.toLocaleString()} rows)
-                    </span>
-                  </div>
-                  <div className="overflow-x-auto max-h-[300px]">
-                    <table className="w-full text-sm">
-                      <thead className="bg-[#f7f9fb] sticky top-0">
-                        <tr>
-                          {parseResult.previewRows[0] &&
-                            Object.keys(parseResult.previewRows[0]).map((col) => (
-                              <th
-                                key={col}
-                                className="px-4 py-2 text-left font-medium text-[#627083] border-b border-[#dce3e7]"
-                              >
-                                {col}
+                {/* Excluded Warning */}
+                {stats.excludedCount > 0 && (
+                  <div className="mb-4">
+                    <button
+                      onClick={() => setShowExcluded(!showExcluded)}
+                      className="w-full flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-left"
+                    >
+                      <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-amber-800">
+                          {stats.excludedCount.toLocaleString()} address
+                          {stats.excludedCount === 1 ? "" : "es"} will be excluded
+                        </p>
+                        <p className="text-sm text-amber-700">
+                          These addresses are missing valid UK postcodes
+                        </p>
+                      </div>
+                      {showExcluded ? (
+                        <ChevronUp className="w-5 h-5 text-amber-600" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-amber-600" />
+                      )}
+                    </button>
+
+                    {/* Excluded List */}
+                    {showExcluded && validationResult && (
+                      <div className="mt-2 border border-amber-200 rounded-lg overflow-hidden max-h-[200px] overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-amber-50 sticky top-0">
+                            <tr>
+                              <th className="px-4 py-2 text-left font-medium text-amber-800 border-b border-amber-200">
+                                Address
                               </th>
-                            ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {parseResult.previewRows.map((row, idx) => (
-                          <tr
-                            key={idx}
-                            className="border-b border-[#eef2f1] hover:bg-[#f7f9fb]"
-                          >
-                            {Object.values(row).map((val, colIdx) => (
-                              <td
-                                key={colIdx}
-                                className="px-4 py-2 text-[#1f2a37] max-w-[200px] truncate"
+                              <th className="px-4 py-2 text-left font-medium text-amber-800 border-b border-amber-200">
+                                Reason
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {validationResult.excludedProperties.map((prop, idx) => (
+                              <tr
+                                key={idx}
+                                className="border-b border-amber-100 last:border-0"
                               >
-                                {val}
-                              </td>
+                                <td className="px-4 py-2 text-amber-900 max-w-[300px] truncate">
+                                  {prop.address}
+                                </td>
+                                <td className="px-4 py-2 text-amber-700">
+                                  {prop.reason}
+                                </td>
+                              </tr>
                             ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
+
+                {/* Preview Table */}
+                {parseResult && (
+                  <div className="border border-[#dce3e7] rounded-lg overflow-hidden">
+                    <div className="bg-[#f7f9fb] px-4 py-2 border-b border-[#dce3e7]">
+                      <span className="text-sm font-medium text-[#627083]">
+                        Preview (first {Math.min(PREVIEW_ROWS, parseResult.previewRows.length)} of{" "}
+                        {parseResult.totalRows.toLocaleString()} rows)
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto max-h-[300px]">
+                      <table className="w-full text-sm">
+                        <thead className="bg-[#f7f9fb] sticky top-0">
+                          <tr>
+                            {parseResult.previewRows[0] &&
+                              Object.keys(parseResult.previewRows[0]).map((col) => (
+                                <th
+                                  key={col}
+                                  className="px-4 py-2 text-left font-medium text-[#627083] border-b border-[#dce3e7]"
+                                >
+                                  {col}
+                                </th>
+                              ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {parseResult.previewRows.map((row, idx) => (
+                            <tr
+                              key={idx}
+                              className="border-b border-[#eef2f1] hover:bg-[#f7f9fb]"
+                            >
+                              {Object.values(row).map((val, colIdx) => (
+                                <td
+                                  key={colIdx}
+                                  className="px-4 py-2 text-[#1f2a37] max-w-[200px] truncate"
+                                >
+                                  {val}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex justify-end gap-3 mt-6">
@@ -265,7 +366,7 @@ export default function ImportPage() {
                     className="bg-[#0f5d5e] hover:bg-[#0b4d4f] text-white"
                   >
                     <CheckCircle className="w-4 h-4" />
-                    Confirm Import
+                    Confirm Import ({stats.validCount.toLocaleString()})
                   </Button>
                 </div>
               </div>

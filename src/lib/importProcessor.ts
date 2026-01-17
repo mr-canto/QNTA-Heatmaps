@@ -13,6 +13,23 @@ export interface DeduplicatedProperty {
   visitCount: number;
 }
 
+export interface ValidatedProperty {
+  address: string;
+  postcode: string;
+  outcode: string;
+  visitCount: number;
+}
+
+export interface ExcludedProperty {
+  address: string;
+  reason: string;
+}
+
+export interface ValidationResult {
+  validProperties: ValidatedProperty[];
+  excludedProperties: ExcludedProperty[];
+}
+
 export interface ParseResult {
   properties: DeduplicatedProperty[];
   totalRows: number;
@@ -21,11 +38,18 @@ export interface ParseResult {
 }
 
 export interface ParseError {
-  type: "noAddress" | "parse";
+  type: "noAddress" | "parse" | "noValidAddresses";
   message: string;
 }
 
 const PREVIEW_ROWS = 100;
+
+/**
+ * UK postcode regex pattern.
+ * Matches full UK postcodes with optional space between outward and inward codes.
+ * Examples: SE15 2JZ, SE152JZ, W1A 1AA, EC1A 1BB
+ */
+const UK_POSTCODE_REGEX = /([A-Z]{1,2}[0-9][0-9A-Z]?)\s*([0-9][A-Z]{2})/i;
 
 /**
  * Normalize address for deduplication comparison.
@@ -33,6 +57,34 @@ const PREVIEW_ROWS = 100;
  */
 function normalizeAddress(address: string): string {
   return address.trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Extract UK postcode from text using regex.
+ * Returns null if no valid postcode found.
+ */
+function extractPostcode(text: string): string | null {
+  const match = text.match(UK_POSTCODE_REGEX);
+  if (!match) return null;
+
+  // Format as "OUTCODE INCODE" with proper spacing
+  return `${match[1].toUpperCase()} ${match[2].toUpperCase()}`;
+}
+
+/**
+ * Extract outcode from a full postcode.
+ * The outcode is the first part (e.g., "SE15" from "SE15 2JZ").
+ */
+function extractOutcode(postcode: string): string {
+  const parts = postcode.trim().split(/\s+/);
+  return parts[0].toUpperCase();
+}
+
+/**
+ * Validate a postcode by checking it matches the UK format.
+ */
+function isValidPostcode(postcode: string): boolean {
+  return UK_POSTCODE_REGEX.test(postcode);
 }
 
 /**
@@ -205,4 +257,60 @@ export async function parseFile(file: File): Promise<ParseResult> {
   } else {
     return parseExcelFile(file);
   }
+}
+
+/**
+ * Validate and extract postcodes from deduplicated properties.
+ * - First attempts to extract postcode from address field
+ * - Falls back to postcode column if extraction fails
+ * - Properties without valid postcodes are excluded
+ */
+export function validateProperties(
+  properties: DeduplicatedProperty[]
+): ValidationResult {
+  const validProperties: ValidatedProperty[] = [];
+  const excludedProperties: ExcludedProperty[] = [];
+
+  for (const prop of properties) {
+    // Try to extract postcode from address first
+    let postcode = extractPostcode(prop.address);
+
+    // Fall back to postcode column if address extraction failed
+    if (!postcode && prop.postcode) {
+      const validatedColumnPostcode = extractPostcode(prop.postcode);
+      if (validatedColumnPostcode) {
+        postcode = validatedColumnPostcode;
+      }
+    }
+
+    // If still no valid postcode, exclude the property
+    if (!postcode) {
+      excludedProperties.push({
+        address: prop.address,
+        reason: "No valid UK postcode found",
+      });
+      continue;
+    }
+
+    // Validate the extracted postcode
+    if (!isValidPostcode(postcode)) {
+      excludedProperties.push({
+        address: prop.address,
+        reason: `Invalid postcode format: ${postcode}`,
+      });
+      continue;
+    }
+
+    // Extract outcode and add to valid properties
+    const outcode = extractOutcode(postcode);
+
+    validProperties.push({
+      address: prop.address,
+      postcode,
+      outcode,
+      visitCount: prop.visitCount,
+    });
+  }
+
+  return { validProperties, excludedProperties };
 }
