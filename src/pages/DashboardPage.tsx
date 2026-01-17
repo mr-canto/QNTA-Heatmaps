@@ -2,6 +2,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useTopAreas } from "@/hooks/useTopAreas";
 import { useMultiVisitHotspot } from "@/hooks/useMultiVisitHotspot";
+import { useBiggestIncrease } from "@/hooks/useBiggestIncrease";
 import {
   Card,
   CardContent,
@@ -13,6 +14,7 @@ import PropertiesDonutChart from "@/components/PropertiesDonutChart";
 import VisitBreakdownPanel from "@/components/VisitBreakdownPanel";
 import TopAreasChart from "@/components/TopAreasChart";
 import MultiVisitHotspotCard from "@/components/MultiVisitHotspotCard";
+import BiggestIncreaseCard from "@/components/BiggestIncreaseCard";
 
 function getFirstName(email: string | undefined, fullName?: string): string {
   if (fullName) {
@@ -32,6 +34,7 @@ export default function DashboardPage() {
   const { data: stats, isLoading: isStatsLoading } = useDashboardStats();
   const { data: topAreas, isLoading: isTopAreasLoading } = useTopAreas();
   const { data: hotspot, isLoading: isHotspotLoading } = useMultiVisitHotspot();
+  const { data: biggestIncrease, isLoading: isIncreaseLoading } = useBiggestIncrease();
   const firstName = getFirstName(
     user?.email,
     user?.user_metadata?.full_name || user?.user_metadata?.name
@@ -125,11 +128,10 @@ export default function DashboardPage() {
                       hotspot={hotspot ?? null}
                       isLoading={isHotspotLoading}
                     />
-                    <div className="flex items-center justify-center rounded-lg bg-[#f4f7f6] border border-[#dce3e7] p-4 h-[80px]">
-                      <p className="text-[#8996a5] text-xs text-center">
-                        Biggest increase
-                      </p>
-                    </div>
+                    <BiggestIncreaseCard
+                      increase={biggestIncrease ?? null}
+                      isLoading={isIncreaseLoading}
+                    />
                   </div>
                 </div>
               </CardContent>
