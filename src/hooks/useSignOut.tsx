@@ -1,0 +1,14 @@
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "./useAuth";
+import { useMutation } from "@tanstack/react-query";
+
+export const useSignOut = () => {
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!user) return;
+      await supabase.auth.signOut();
+    },
+  });
+};

@@ -1,0 +1,611 @@
+{
+  "project": "QNTA Heatmap - Damp and Mould Visualization",
+  "branchName": "ralph/qnta-heatmap-implementation",
+  "description": "Production-ready React web application for Southwark Council that visualizes damp and mould property visit data on an interactive map. Features historical snapshots, data import, dashboard analytics, and filtering capabilities.",
+  "userStories": [
+    {
+      "id": "US-002",
+      "title": "Database Schema Setup",
+      "description": "As a developer, I want to create the Supabase database schema so that property data and import history can be stored properly.",
+      "acceptanceCriteria": [
+        "imports table created with: id, uploaded_by, uploaded_at, filename, record_count, is_current",
+        "properties table created with: id, import_id, address, postcode, outcode, lat, lon, visit_count",
+        "outcode_stats table created with: id, import_id, outcode, area_name, total_visits, property_count, multi_visit_count, lat, lon",
+        "Foreign key relationships established between tables",
+        "RLS policies: authenticated users can SELECT all, INSERT into imports/properties/outcode_stats, UPDATE imports.is_current only, no DELETE",
+        "Indexes created on import_id and outcode columns",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Seed Initial Data Migration",
+      "description": "As a developer, I want to migrate the existing 9,870 properties to Supabase so that the application has data to display on first launch.",
+      "acceptanceCriteria": [
+        "Source data is extracted from the provided XLSX file (not the HTML file)",
+        "All 9,870 properties from the Excel file are imported",
+        "The one address without a postcode is handled appropriately (excluded)",
+        "Initial import is recorded in the imports table",
+        "Outcode statistics are calculated and stored",
+        "Data can be queried successfully from the application",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-001",
+      "title": "User Authentication",
+      "description": "As a housing team member, I want to log in with my credentials so that only authorised staff can access the application.",
+      "acceptanceCriteria": [
+        "Users must authenticate before viewing any part of the application",
+        "Unauthenticated users are redirected to the login page",
+        "Existing auth system (email/password) is used",
+        "After login, users are redirected to the Dashboard",
+        "Sign out clears the session and redirects to the login page",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Auth context and hooks may already exist - verify and enhance as needed"
+    },
+    {
+      "id": "US-005",
+      "title": "User Avatar Component",
+      "description": "As a user, I want to see my initials in a coloured avatar so that the interface feels personalised.",
+      "acceptanceCriteria": [
+        "Avatar displays user's initials (e.g., 'VA' for Victor Acquah)",
+        "Avatar background colour is vibrant (derived from user's name for consistency)",
+        "Initials are white text on coloured background",
+        "Avatar is circular with appropriate sizing",
+        "Built with ShadCN Avatar component",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Application Header",
+      "description": "As a user, I want to see a consistent header across all pages so that I can navigate the application and manage my session.",
+      "acceptanceCriteria": [
+        "Header displays 'QNTA Heatmap' branding on the left using Fraunces font",
+        "Header background is teal (#0f5d5e) with subtle radial gradient overlay",
+        "Header height is 72px, fixed at top of viewport",
+        "Navigation links for Dashboard, Heatmap, and Import are displayed",
+        "Active page is visually highlighted in navigation",
+        "User's initials displayed in a coloured avatar circle on the right",
+        "Clicking avatar reveals dropdown with user name and Sign Out option",
+        "Layout matches Design Specifications wireframe",
+        "Built with ShadCN components",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Dashboard Page Layout",
+      "description": "As a user, I want to land on a dashboard after login so that I get an overview before diving into details.",
+      "acceptanceCriteria": [
+        "Dashboard is the default page after authentication",
+        "Page displays welcome message with user's first name",
+        "Page contains sections: Snapshot Overview, Problem Areas, Quick Actions",
+        "Layout matches Design Specifications wireframe",
+        "Route is /dashboard",
+        "Built with ShadCN Card components for sections",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Properties Donut Chart",
+      "description": "As a user, I want to see a donut chart showing total properties so that I understand the single vs multi-visit split at a glance.",
+      "acceptanceCriteria": [
+        "Donut chart displays with total properties count in the centre",
+        "Chart has two segments: Single Visit (teal #0f5d5e) and Multi Visit (coral #d16b55)",
+        "Segment sizes reflect actual proportions from database",
+        "Legend below chart shows 'Single Visit' and 'Multi Visit' with counts",
+        "Positioned in Snapshot Overview section per wireframe",
+        "Uses Recharts library",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Visit Breakdown Panel",
+      "description": "As a user, I want to see a breakdown of visit categories so that I understand the distribution of issues.",
+      "acceptanceCriteria": [
+        "Panel displays three horizontal bars: Single Visit, Multi Visit, Severe (5+)",
+        "Each bar shows: label, count, percentage, and visual progress bar",
+        "Bar fill colour: teal (#0f5d5e) for single, coral (#d16b55) for multi/severe",
+        "Percentages are calculated from total properties",
+        "Positioned in Snapshot Overview section per wireframe",
+        "Built with ShadCN Progress or custom bar components",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Top 5 Areas Chart",
+      "description": "As a user, I want to see the top 5 problem areas so that I know where to focus resources.",
+      "acceptanceCriteria": [
+        "Horizontal bar chart shows top 5 outcodes by total visit count",
+        "Each bar displays: area name, outcode, visual bar, and count",
+        "Bars are sorted by visit count descending (highest at top)",
+        "Bar fill colour is teal (#0f5d5e)",
+        "Clicking an area navigates to Heatmap page filtered to that area",
+        "Positioned in Problem Areas section per wireframe",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Multi-Visit Hotspot Card",
+      "description": "As a user, I want to see which area has the highest concentration of recurring issues so that I can prioritise interventions.",
+      "acceptanceCriteria": [
+        "Card displays the outcode with highest percentage of multi-visit properties",
+        "Shows area name and outcode",
+        "Shows percentage of properties in that area with repeat visits",
+        "Card has visual emphasis (border or background colour)",
+        "Positioned in Problem Areas section per wireframe",
+        "Built with ShadCN Card component",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Biggest Increase Card",
+      "description": "As a user, I want to see which area has grown most since the last import so that I can identify emerging problems.",
+      "acceptanceCriteria": [
+        "Card displays the outcode with largest percentage increase since previous import",
+        "Shows area name and outcode",
+        "Shows percentage change with '+' prefix (e.g., '+23%')",
+        "If no previous import exists, card displays 'No previous data available'",
+        "Card has visual emphasis (border or background colour)",
+        "Positioned in Problem Areas section per wireframe",
+        "Built with ShadCN Card component",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Quick Actions Row",
+      "description": "As a user, I want quick access to common actions so that I can navigate efficiently.",
+      "acceptanceCriteria": [
+        "Three action buttons displayed in a row: View Heatmap, Import Data, Export Data",
+        "Each button has a subtle icon (Lucide icons) alongside text",
+        "'View Heatmap' navigates to /heatmap",
+        "'Import Data' navigates to /import",
+        "'Export Data' triggers CSV download of current snapshot",
+        "Positioned at bottom of dashboard per wireframe",
+        "Built with ShadCN Button components",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Interactive Map Component",
+      "description": "As a user, I want to see an interactive map displaying property locations so that I can visualise damp and mould issues across Southwark.",
+      "acceptanceCriteria": [
+        "Leaflet map renders centred on Southwark (51.4700, -0.0650)",
+        "Map is responsive and fills available space below header",
+        "Zoom controls are accessible",
+        "Base tile layer loads correctly (OpenStreetMap)",
+        "Route is /heatmap",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Heatmap Visualisation Mode",
+      "description": "As a user, I want to view data as a heatmap so that I can quickly identify areas with high concentrations of issues.",
+      "acceptanceCriteria": [
+        "Heatmap layer renders using Leaflet.heat plugin",
+        "Intensity is based on visit_count",
+        "Colour gradient uses 5-colour scale: #2f7ab8, #3aa6b9, #f1d77a, #f2a65a, #d45a4b",
+        "Heatmap updates when filters are applied",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Marker Visualisation Mode",
+      "description": "As a user, I want to view individual property markers so that I can see exact locations and details.",
+      "acceptanceCriteria": [
+        "Circle markers render for each property",
+        "Marker size scales with visit_count",
+        "Single-visit properties are teal (#0f5d5e), multi-visit are coral (#d16b55)",
+        "Clicking a marker shows popup with banner header, address section, and visit count section",
+        "Popup has close button, 14px border radius, large shadow per Design Specifications",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Cluster Visualisation Mode",
+      "description": "As a user, I want to view clustered markers so that the map remains performant with thousands of points.",
+      "acceptanceCriteria": [
+        "MarkerCluster plugin groups nearby markers",
+        "Cluster count displays on cluster icons",
+        "Clicking a cluster zooms in to show individual markers",
+        "Clusters update when filters are applied",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "View Mode Toggle",
+      "description": "As a user, I want to switch between heatmap, markers, and cluster views so that I can analyse data in different ways.",
+      "acceptanceCriteria": [
+        "Toggle buttons for Heatmap, Markers, Clusters are displayed",
+        "Active mode is visually highlighted",
+        "Switching modes updates the map immediately",
+        "Current mode persists during filter changes",
+        "Built with ShadCN Button components",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Area Filter Dropdown",
+      "description": "As a user, I want to filter by postcode area so that I can focus on specific neighbourhoods.",
+      "acceptanceCriteria": [
+        "Dropdown lists all outcodes with area names (e.g., 'Peckham, SE15')",
+        "'All Areas' option shows complete dataset",
+        "Selecting an area filters the map and zooms to that location",
+        "Visit count shown next to each area in dropdown",
+        "Built with ShadCN Select component",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Visit Type Filter",
+      "description": "As a user, I want to filter by single or multiple visits so that I can identify recurring problem properties.",
+      "acceptanceCriteria": [
+        "Toggle buttons for All, Single Visit, Multi Visit",
+        "Filter applies to current map view",
+        "Can be combined with area filter",
+        "Built with ShadCN Button components",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Minimum Visits Slider",
+      "description": "As a user, I want to set a minimum visit threshold so that I can focus on properties with the most issues.",
+      "acceptanceCriteria": [
+        "Slider ranges from 1 to 10+",
+        "Current value is displayed",
+        "Map updates as slider moves",
+        "10+ shows properties with 10 or more visits",
+        "Built with ShadCN Slider component",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Heatmap Statistics Header",
+      "description": "As a user, I want to see summary statistics on the heatmap page so that I understand the filtered data.",
+      "acceptanceCriteria": [
+        "Displays total properties count for current filter",
+        "Displays single visit count for current filter",
+        "Displays multi visit count for current filter",
+        "Statistics update when filters change",
+        "Positioned at top of heatmap page below main header",
+        "Built with ShadCN components",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Area Statistics Panel",
+      "description": "As a user, I want to see a breakdown by area on the heatmap page so that I can compare neighbourhoods.",
+      "acceptanceCriteria": [
+        "Lists all outcodes with visit counts",
+        "Visual bar indicates relative volume",
+        "Clicking an area filters the map to that area",
+        "Sorted by visit count descending",
+        "Built with ShadCN Card and custom components",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Search by Address or Postcode",
+      "description": "As a user, I want to search for a specific address or postcode so that I can quickly find properties of interest.",
+      "acceptanceCriteria": [
+        "Search input field in the controls panel",
+        "Searches both address and postcode fields",
+        "Results filter the map in real-time as user types",
+        "Matching properties are highlighted or isolated",
+        "Clear button resets search",
+        "Built with ShadCN Input component",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Export Filtered Data",
+      "description": "As a user, I want to export the currently filtered data so that I can analyse it in Excel or share with colleagues.",
+      "acceptanceCriteria": [
+        "Export button in the controls panel",
+        "Exports current filtered dataset (respects all active filters)",
+        "Downloads as CSV file",
+        "Includes columns: address, postcode, outcode, visit_count",
+        "Filename includes current date and snapshot identifier",
+        "Built with ShadCN Button component",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Historical Snapshot Selector",
+      "description": "As a user, I want to view the heatmap from a previous import so that I can see how the data has changed over time.",
+      "acceptanceCriteria": [
+        "Dropdown lists all available imports with dates",
+        "'Current' option is selected by default",
+        "Selecting a past import loads that snapshot's data",
+        "Map, statistics, and filters all reflect the selected snapshot",
+        "Clear visual indicator when viewing historical data (amber banner stating 'Viewing data from [date]')",
+        "Built with ShadCN Select component",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Data Import Page",
+      "description": "As a user, I want to upload a new Excel or CSV file so that I can update the heatmap with fresh data.",
+      "acceptanceCriteria": [
+        "Dedicated import page at route /import",
+        "File upload accepts .xlsx and .csv formats (max 10MB)",
+        "Drag-and-drop zone for file upload",
+        "Error shown if file too large: 'File exceeds 10MB limit'",
+        "Error shown if wrong file type: 'Please upload an Excel or CSV file'",
+        "Error shown if no Address column: 'No Address column found in file'",
+        "Preview of data shown before confirming (first 100 rows, total count)",
+        "Confirm and Cancel buttons for import flow",
+        "Progress bar shown during processing",
+        "Built with ShadCN Card, Button, and Input components",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027a",
+      "title": "Import File Parsing and Validation",
+      "description": "As a user, I want my uploaded file to be parsed and validated so that I know if the data is suitable for import.",
+      "acceptanceCriteria": [
+        "File is parsed (Excel via xlsx library, CSV via papaparse)",
+        "Address column is required; error shown if missing",
+        "Postcode column is optional",
+        "Addresses are deduplicated; visit count = number of occurrences",
+        "Total row count and unique address count are calculated",
+        "Parsing errors are caught and displayed to user",
+        "Typecheck passes"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027b",
+      "title": "Postcode Extraction and Validation",
+      "description": "As a user, I want postcodes to be extracted and validated so that properties can be geocoded and mapped.",
+      "acceptanceCriteria": [
+        "Postcode detection: extract from Address field first using UK postcode regex",
+        "Fallback to Postcode column if extraction from Address fails",
+        "Outcode derived from postcode (e.g., 'SE15' from 'SE15 2JZ')",
+        "Addresses without valid postcodes are marked for exclusion",
+        "If all addresses are invalid, error shown: 'No valid addresses found'",
+        "List of excluded addresses with reasons is prepared for display",
+        "Typecheck passes"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027c",
+      "title": "Import Database Operations",
+      "description": "As a user, I want validated data to be saved to the database so that it becomes a new snapshot.",
+      "acceptanceCriteria": [
+        "New import record is created with current timestamp (only if at least one valid address)",
+        "Previous import is marked as not current (is_current = false)",
+        "New properties are inserted with the new import_id",
+        "Outcode statistics are calculated and stored in outcode_stats table",
+        "All database operations are wrapped in a transaction (rollback on failure)",
+        "Success summary displayed: 'X properties imported, Y excluded'",
+        "Excluded addresses listed with reasons",
+        "Typecheck passes"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Import Geocoding",
+      "description": "As a user, I want uploaded addresses to be geocoded so that they can be displayed on the map.",
+      "acceptanceCriteria": [
+        "Valid postcodes are geocoded using Postcodes.io API (free, UK-specific)",
+        "Geocoding runs synchronously during import (batched, 100 postcodes per request)",
+        "Rate limiting is respected (batch requests where possible)",
+        "Properties without valid postcodes are excluded entirely",
+        "Properties where geocoding fails (API error) are excluded entirely",
+        "If geocoding service is completely unavailable, import fails with error",
+        "Excluded addresses listed by name so user can investigate",
+        "Typecheck passes"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "Import History List",
+      "description": "As a user, I want to see a list of all past imports so that I can track when data was updated.",
+      "acceptanceCriteria": [
+        "Table displayed on Import page below upload section",
+        "Shows all imports with: date, filename, record count, uploaded by",
+        "Current import is highlighted or badged",
+        "Most recent imports shown first",
+        "Built with ShadCN Table component",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Loading States",
+      "description": "As a user, I want to see loading indicators so that I know the system is working.",
+      "acceptanceCriteria": [
+        "Loading spinner shown while dashboard data loads",
+        "Loading spinner shown while map data loads",
+        "Loading state shown during filter changes",
+        "Loading state shown during file upload and processing",
+        "Skeleton loaders used for cards where appropriate",
+        "Built with ShadCN Skeleton and Spinner components",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-031",
+      "title": "Responsive Layout",
+      "description": "As a user, I want the application to work on different screen sizes so that I can use it on desktop or tablet.",
+      "acceptanceCriteria": [
+        "Responsive behaviour matches docs/heatmap-design.css exactly",
+        "Desktop (>1024px): Side panels fixed, 280px width, positioned left/right",
+        "Tablet (768-1024px): Panels narrow to 240px, reduced padding/font sizes",
+        "Mobile (<768px): Panels become slide-out drawers with toggle buttons, header stacks vertically",
+        "Small mobile (<480px): Full-width panels, further font reductions",
+        "Mobile toggle buttons appear at <768px to open/close panels",
+        "Panel slide animations use 0.3s ease transition",
+        "Touch targets enlarged on mobile (24px slider thumbs, 12px padding)",
+        "Verify in browser at 1280px, 1024px, 768px, 480px, 375px viewports",
+        "Typecheck passes"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-032",
+      "title": "Error States and Recovery",
+      "description": "As a user, I want to see clear error messages when something goes wrong so that I understand what happened and can take action.",
+      "acceptanceCriteria": [
+        "Toast notification displayed when API requests fail",
+        "Error messages are user-friendly (not technical jargon)",
+        "Retry button shown where applicable (e.g., failed data fetch)",
+        "Network connectivity issues display appropriate message",
+        "Session expiry redirects to login with message",
+        "Form validation errors displayed inline next to relevant fields",
+        "Built with ShadCN Toast component",
+        "Verify in browser",
+        "Typecheck passes"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
