@@ -6,7 +6,7 @@ import HeatmapLayer from "@/components/HeatmapLayer";
 import MarkerLayer from "@/components/MarkerLayer";
 import ClusterLayer from "@/components/ClusterLayer";
 import MapController from "@/components/MapController";
-import AreaFilterDropdown from "@/components/AreaFilterDropdown";
+import AreaStatsPanel from "@/components/AreaStatsPanel";
 import HeatmapStatsHeader from "@/components/HeatmapStatsHeader";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -173,15 +173,13 @@ export default function HeatmapPage() {
         </div>
       </div>
 
-      {/* Area Filter */}
-      <div className="absolute top-14 right-4 z-[1000]">
-        <AreaFilterDropdown
-          areas={outcodeStats}
-          selectedArea={selectedArea}
-          onAreaChange={setSelectedArea}
-          isLoading={isStatsLoading}
-        />
-      </div>
+      {/* Area Statistics Panel */}
+      <AreaStatsPanel
+        areas={outcodeStats}
+        selectedArea={selectedArea}
+        onAreaClick={setSelectedArea}
+        isLoading={isStatsLoading}
+      />
 
       {isLoading && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/90 px-4 py-2 rounded-lg shadow-md text-sm text-[#627083]">
