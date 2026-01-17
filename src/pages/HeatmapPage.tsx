@@ -2,6 +2,7 @@ import { MapContainer, TileLayer, ZoomControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useProperties, type PropertyFilters } from "@/hooks/useProperties";
 import { useOutcodeStats } from "@/hooks/useOutcodeStats";
+import { useImports } from "@/hooks/useImports";
 import HeatmapLayer from "@/components/HeatmapLayer";
 import MarkerLayer from "@/components/MarkerLayer";
 import ClusterLayer from "@/components/ClusterLayer";
@@ -11,8 +12,15 @@ import HeatmapStatsHeader from "@/components/HeatmapStatsHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState, useMemo, useCallback } from "react";
-import { Flame, MapPin, Grid3X3, Search, X, Download } from "lucide-react";
+import { Flame, MapPin, Grid3X3, Search, X, Download, History } from "lucide-react";
 import type { Property } from "@/types/database.types";
 
 // Southwark centre coordinates
@@ -38,18 +46,31 @@ export default function HeatmapPage() {
   // State for search
   const [searchTerm, setSearchTerm] = useState("");
 
+  // State for selected import (null means current)
+  const [selectedImportId, setSelectedImportId] = useState<string | null>(null);
+
+  // Fetch all imports for the snapshot selector
+  const { data: imports = [] } = useImports();
+
   // Fetch outcode stats for the dropdown
   const { data: outcodeStats = [], isLoading: isStatsLoading } = useOutcodeStats();
 
-  // Build filters based on selected area, visit type, min visits, and search
+  // Get the selected import details for banner
+  const selectedImport = useMemo(() => {
+    if (!selectedImportId) return null;
+    return imports.find((i) => i.id === selectedImportId) ?? null;
+  }, [selectedImportId, imports]);
+
+  // Build filters based on selected area, visit type, min visits, search, and import
   const filters = useMemo<PropertyFilters>(
     () => ({
+      importId: selectedImportId,
       outcode: selectedArea,
       visitType: visitType,
       minVisits: minVisits,
       searchTerm: searchTerm,
     }),
-    [selectedArea, visitType, minVisits, searchTerm]
+    [selectedImportId, selectedArea, visitType, minVisits, searchTerm]
   );
 
   // Fetch properties based on filters
@@ -102,8 +123,57 @@ export default function HeatmapPage() {
 
   return (
     <div className="h-[calc(100vh-72px)] w-full relative">
+      {/* Historical Data Banner */}
+      {selectedImport && (
+        <div className="absolute top-0 left-0 right-0 z-[1001] bg-amber-500 text-white py-2 px-4 text-center text-sm font-medium">
+          <History className="inline-block w-4 h-4 mr-2 -mt-0.5" />
+          Viewing data from{" "}
+          {new Date(selectedImport.uploaded_at).toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}
+        </div>
+      )}
+
       {/* Statistics Header */}
       <HeatmapStatsHeader properties={properties} isLoading={isLoading} />
+
+      {/* Snapshot Selector */}
+      <div className="absolute top-14 right-4 z-[1000] flex flex-col gap-2">
+        <div className="bg-white rounded-[10px] border border-[#dce3e7] shadow-[0_6px_16px_rgba(15,23,42,0.08)] p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <History className="w-3.5 h-3.5 text-[#0f5d5e]" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#627083]">
+              Snapshot
+            </span>
+          </div>
+          <Select
+            value={selectedImportId ?? "current"}
+            onValueChange={(value) =>
+              setSelectedImportId(value === "current" ? null : value)
+            }
+          >
+            <SelectTrigger className="w-[200px] text-sm border-[#dce3e7]">
+              <SelectValue placeholder="Select snapshot" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current">Current</SelectItem>
+              {imports
+                .filter((i) => !i.is_current)
+                .map((imp) => (
+                  <SelectItem key={imp.id} value={imp.id}>
+                    {new Date(imp.uploaded_at).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {/* View Mode Toggle */}
       <div className="absolute top-14 left-4 z-[1000] bg-white rounded-[10px] border border-[#dce3e7] shadow-[0_6px_16px_rgba(15,23,42,0.08)] p-1">
