@@ -9,9 +9,10 @@ import MapController from "@/components/MapController";
 import AreaStatsPanel from "@/components/AreaStatsPanel";
 import HeatmapStatsHeader from "@/components/HeatmapStatsHeader";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { useState, useMemo } from "react";
-import { Flame, MapPin, Grid3X3 } from "lucide-react";
+import { Flame, MapPin, Grid3X3, Search, X } from "lucide-react";
 
 // Southwark centre coordinates
 const SOUTHWARK_CENTER: [number, number] = [51.47, -0.065];
@@ -33,17 +34,21 @@ export default function HeatmapPage() {
   // State for minimum visits filter
   const [minVisits, setMinVisits] = useState(1);
 
+  // State for search
+  const [searchTerm, setSearchTerm] = useState("");
+
   // Fetch outcode stats for the dropdown
   const { data: outcodeStats = [], isLoading: isStatsLoading } = useOutcodeStats();
 
-  // Build filters based on selected area, visit type, and min visits
+  // Build filters based on selected area, visit type, min visits, and search
   const filters = useMemo<PropertyFilters>(
     () => ({
       outcode: selectedArea,
       visitType: visitType,
       minVisits: minVisits,
+      searchTerm: searchTerm,
     }),
-    [selectedArea, visitType, minVisits]
+    [selectedArea, visitType, minVisits, searchTerm]
   );
 
   // Fetch properties based on filters
@@ -170,6 +175,33 @@ export default function HeatmapPage() {
         <div className="flex justify-between text-[10px] text-[#8996a5] mt-1">
           <span>1</span>
           <span>10+</span>
+        </div>
+      </div>
+
+      {/* Search Input */}
+      <div className="absolute top-[13rem] left-4 z-[1000] bg-white rounded-[10px] border border-[#dce3e7] shadow-[0_6px_16px_rgba(15,23,42,0.08)] p-3 w-[200px]">
+        <div className="flex items-center gap-2 mb-2">
+          <Search className="w-3.5 h-3.5 text-[#0f5d5e]" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#627083]">
+            Search
+          </span>
+        </div>
+        <div className="relative">
+          <Input
+            type="text"
+            placeholder="Address or postcode..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pr-8 text-sm h-8 border-[#dce3e7]"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8996a5] hover:text-[#627083]"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
