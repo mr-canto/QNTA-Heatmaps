@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { OutcodeStats } from "@/hooks/useOutcodeStats";
 
 interface AreaStatsPanelProps {
@@ -26,7 +27,20 @@ export default function AreaStatsPanel({
       </CardHeader>
       <CardContent className="p-0 overflow-y-auto max-h-[400px]">
         {isLoading ? (
-          <div className="p-4 text-sm text-[#627083]">Loading areas...</div>
+          <ul className="divide-y divide-[#eef2f1]">
+            {[...Array(6)].map((_, i) => (
+              <li key={i} className="px-4 py-3">
+                <div className="flex justify-between items-center mb-1.5">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-12" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-3 w-10" />
+                  <Skeleton className="h-1.5 flex-1 rounded-full" />
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : areas.length === 0 ? (
           <div className="p-4 text-sm text-[#627083]">No areas found</div>
         ) : (
