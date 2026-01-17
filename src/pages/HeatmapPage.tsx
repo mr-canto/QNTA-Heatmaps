@@ -16,6 +16,7 @@ const SOUTHWARK_CENTER: [number, number] = [51.47, -0.065];
 const DEFAULT_ZOOM = 13;
 
 type ViewMode = "heatmap" | "markers" | "clusters";
+type VisitType = "all" | "single" | "multi";
 
 export default function HeatmapPage() {
   // State for view mode
@@ -24,15 +25,19 @@ export default function HeatmapPage() {
   // State for area filter
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
 
+  // State for visit type filter
+  const [visitType, setVisitType] = useState<VisitType>("all");
+
   // Fetch outcode stats for the dropdown
   const { data: outcodeStats = [], isLoading: isStatsLoading } = useOutcodeStats();
 
-  // Build filters based on selected area
+  // Build filters based on selected area and visit type
   const filters = useMemo<PropertyFilters>(
     () => ({
       outcode: selectedArea,
+      visitType: visitType,
     }),
-    [selectedArea]
+    [selectedArea, visitType]
   );
 
   // Fetch properties based on filters
@@ -89,6 +94,48 @@ export default function HeatmapPage() {
           >
             <Grid3X3 className="w-3.5 h-3.5" />
             Clusters
+          </Button>
+        </div>
+      </div>
+
+      {/* Visit Type Filter */}
+      <div className="absolute top-16 left-4 z-[1000] bg-white rounded-[10px] border border-[#dce3e7] shadow-[0_6px_16px_rgba(15,23,42,0.08)] p-1">
+        <div className="flex gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setVisitType("all")}
+            className={`px-3 py-2 text-xs font-semibold transition-all rounded-lg ${
+              visitType === "all"
+                ? "bg-white text-[#1f2a37] shadow-[0_6px_16px_rgba(15,23,42,0.08)] border border-[rgba(15,23,42,0.08)]"
+                : "text-[#627083] hover:text-[#1f2a37]"
+            }`}
+          >
+            All
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setVisitType("single")}
+            className={`px-3 py-2 text-xs font-semibold transition-all rounded-lg ${
+              visitType === "single"
+                ? "bg-white text-[#0f5d5e] shadow-[0_6px_16px_rgba(15,23,42,0.08)] border border-[#0f5d5e]/30"
+                : "text-[#627083] hover:text-[#1f2a37]"
+            }`}
+          >
+            Single Visit
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setVisitType("multi")}
+            className={`px-3 py-2 text-xs font-semibold transition-all rounded-lg ${
+              visitType === "multi"
+                ? "bg-white text-[#d16b55] shadow-[0_6px_16px_rgba(15,23,42,0.08)] border border-[#d16b55]/30"
+                : "text-[#627083] hover:text-[#1f2a37]"
+            }`}
+          >
+            Multi Visit
           </Button>
         </div>
       </div>
