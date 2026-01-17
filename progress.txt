@@ -3,6 +3,173 @@ Started: 2026-01-17
 ---
 
 ## Codebase Patterns
-[This section will be populated as patterns are discovered]
+- Supabase migrations use `IF NOT EXISTS` for idempotent table creation
+- TypeScript types for database are in `src/types/database.types.ts` with convenience aliases like `Import`, `Property`, `OutcodeStat`
+- RLS policies follow naming convention: `{table}_{action}_policy`
+- All tables use UUID primary keys with `gen_random_uuid()` default
+- Seed scripts in `scripts/` directory use CommonJS (.cjs) for Node.js compatibility
+- Supabase service role key uses ES256 algorithm (not HS256) - get fresh keys via `npx supabase status -o json`
+- Postcodes.io API supports bulk lookups (100 per batch) - terminated postcodes return 404 with termination info
+- AppLayout wraps protected routes to provide consistent header - pages render inside `<main className="pt-[72px]">`
+- Colour palette: teal (#0f5d5e), coral (#d16b55) per Design Specifications
+- Use Recharts for charts: PieChart with innerRadius for donut, ResponsiveContainer for responsive sizing
+- useDashboardStats hook provides aggregated stats (totalProperties, singleVisitCount, multiVisitCount, severeCount) from current import
+- For count queries on properties table, use `select("id", { count: "exact", head: true })` pattern for efficiency
 
 ---
+
+## 2026-01-17 - US-002: Database Schema Setup
+
+### Implementation Summary
+Created the Supabase database schema with three main tables (imports, properties, outcode_stats) along with foreign key relationships, RLS policies for authenticated users, and indexes on import_id and outcode columns. Updated TypeScript type definitions to match the schema.
+
+### Files Modified
+- supabase/migrations/20260117000000_initial_schema.sql (new)
+- src/types/database.types.ts
+
+### Learnings
+- Supabase RLS cannot restrict UPDATE to specific columns at the policy level - must be enforced at application level
+- Use `CASCADE` on foreign keys for properties and outcode_stats to enable clean snapshot deletion
+- Partial index on `imports(is_current)` for efficient current snapshot lookup
+
+## 2026-01-17 - US-003: Seed Initial Data Migration
+
+### Implementation Summary
+Created seed script to migrate property data from the XLSX file to Supabase. The script reads 15,902 rows, deduplicates by address to get 9,867 unique properties, validates/extracts UK postcodes, geocodes via Postcodes.io API, and stores data with calculated outcode statistics. One address without a postcode and one with a terminated postcode were correctly excluded, resulting in 9,866 properties across 18 outcode areas.
+
+### Files Modified
+- scripts/seed-initial-data.cjs (new)
+
+### Learnings
+- XLSX file has visits (15,902 rows) not unique properties - deduplication needed
+- Address normalization: trim and collapse whitespace before comparing
+- UK postcode regex handles variable spacing: `/([A-Z]{1,2}[0-9][0-9A-Z]?\s*[0-9][A-Z]{2})/i`
+- Postcodes.io terminated postcodes (like SE15 2QX) return 404 but include termination info
+- Batch inserts in 500-property chunks for performance
+
+## 2026-01-17 - US-001: User Authentication
+
+### Implementation Summary
+Configured the authentication flow to redirect users appropriately. Login page at /login redirects authenticated users to /dashboard. ProtectedRoute redirects unauthenticated users to /login. Sign out clears session and navigates to /login. Created DashboardPage placeholder as the authenticated landing page.
+
+### Files Modified
+- src/App.tsx (updated routes to /login and /dashboard)
+- src/ProtectedRoute.tsx (redirect to /login)
+- src/hooks/useSignOut.tsx (added navigation on sign out)
+- src/pages/LoginPage.tsx (redirect to /dashboard)
+- src/pages/DashboardPage.tsx (new)
+- src/pages/HomePage.tsx (deleted)
+- src/components/Navbar.tsx (deleted)
+
+### Learnings
+- React Router v7 uses Navigate component for redirects in route config
+- useMutation onSuccess callback is the right place to trigger navigation after async operations
+- Catch-all route with Navigate handles unknown paths gracefully
+
+## 2026-01-17 - US-005: User Avatar Component
+
+### Implementation Summary
+Created UserAvatar component that displays user initials on a vibrant coloured background. Uses ShadCN Avatar component as the base, generates consistent colours from user names using a hash function, and supports three sizes (sm, md, lg).
+
+### Files Modified
+- src/components/ui/avatar.tsx (new - ShadCN component)
+- src/components/UserAvatar.tsx (new)
+
+### Learnings
+- ShadCN's AvatarFallback is used for initials display when no image is available
+- Colour consistency achieved by hashing name string to select from predefined vibrant palette
+- Initials extraction: split by whitespace, use first and last parts for two-letter initials
+
+## 2026-01-17 - US-004: Application Header
+
+### Implementation Summary
+Created the application Header component with teal background (#0f5d5e) and subtle radial gradient. Implemented navigation links for Dashboard, Heatmap, and Import with active state highlighting. Added user avatar dropdown with name display and Sign Out functionality. Created AppLayout component to wrap authenticated pages with consistent header structure.
+
+### Files Modified
+- src/components/Header.tsx (new)
+- src/components/AppLayout.tsx (new)
+- src/components/ui/dropdown-menu.tsx (new - ShadCN component)
+- src/App.tsx (added AppLayout wrapper for protected routes)
+- src/pages/DashboardPage.tsx (updated to work with new layout)
+- index.html (added Fraunces font, updated title)
+- package.json (added radix dropdown-menu dependency)
+
+### Learnings
+- Nested route structure: ProtectedRoute > AppLayout > Page allows auth check before layout render
+- Fraunces font loaded via Google Fonts for branding consistency
+- Header fixed at top requires pt-[72px] on main content to prevent overlap
+- ShadCN CLI may create files in wrong directory (@/) - verify component creation path
+
+## 2026-01-17 - US-006: Dashboard Page Layout
+
+### Implementation Summary
+Implemented the dashboard page layout with three main sections: Snapshot Overview, Problem Areas, and Quick Actions. Added personalized welcome message that extracts user's first name from metadata or email. Applied design system colours and shadows from heatmap-design.css. Placeholder content added for charts and action buttons that will be implemented in subsequent stories.
+
+### Files Modified
+- src/pages/DashboardPage.tsx (updated)
+
+### Learnings
+- User first name extraction: prefer user_metadata.full_name, then user_metadata.name, then derive from email local part
+- Design system shadow token: `shadow-[0_6px_16px_rgba(15,23,42,0.08)]` matches `--shadow-sm` from CSS
+- Dashboard sections use placeholder divs with consistent styling for content to be added by future stories (US-007 through US-012)
+
+## 2026-01-17 - US-007: Properties Donut Chart
+
+### Implementation Summary
+Created PropertiesDonutChart component using Recharts library to display a donut visualization of property visit types. Added useDashboardStats hook to fetch aggregated statistics from the current import's outcode_stats table. Integrated the chart into the Snapshot Overview section of the Dashboard.
+
+### Files Modified
+- package.json (added recharts dependency)
+- src/components/PropertiesDonutChart.tsx (new)
+- src/hooks/useDashboardStats.ts (new)
+- src/pages/DashboardPage.tsx (integrated chart component)
+
+### Learnings
+- Recharts PieChart with innerRadius creates donut effect; paddingAngle adds visual separation between segments
+- Absolute positioning overlays center label on donut chart using pointer-events-none
+- useDashboardStats aggregates from outcode_stats rather than querying properties table directly for better performance
+
+## 2026-01-17 - US-008: Visit Breakdown Panel
+
+### Implementation Summary
+Created VisitBreakdownPanel component displaying three horizontal bars for Single Visit, Multi Visit, and Severe (5+) property categories. Extended useDashboardStats hook to query severe count from properties table. Each bar shows label, count, percentage, and visual progress bar with design system colours.
+
+### Files Modified
+- src/components/VisitBreakdownPanel.tsx (new)
+- src/hooks/useDashboardStats.ts (added severeCount query)
+- src/pages/DashboardPage.tsx (integrated panel component)
+
+### Learnings
+- Severe count (5+ visits) not stored in outcode_stats table - requires direct query on properties table with visit_count >= 5
+- Custom progress bar component provides more flexibility than ShadCN Progress for matching design specifications
+- Supabase count queries use `{ count: "exact", head: true }` option to return only the count without fetching rows
+
+## 2026-01-17 - US-009: Top 5 Areas Chart
+
+### Implementation Summary
+Created TopAreasChart component displaying horizontal bars for the top 5 outcodes by total visit count. Added useTopAreas hook to fetch data from outcode_stats table ordered by total_visits descending. Each bar is clickable and navigates to the Heatmap page with the area filter parameter.
+
+### Files Modified
+- src/hooks/useTopAreas.ts (new)
+- src/components/TopAreasChart.tsx (new)
+- src/pages/DashboardPage.tsx (integrated chart component)
+
+### Learnings
+- outcode_stats table includes total_visits field for efficient ranking without aggregating from properties
+- Supabase order() and limit() chain for top-N queries
+- URL query parameters (e.g., /heatmap?area=SE15) will be used for heatmap area filtering (future stories)
+
+## 2026-01-17 - US-010: Multi-Visit Hotspot Card
+
+### Implementation Summary
+Created MultiVisitHotspotCard component and useMultiVisitHotspot hook to display the area with the highest concentration of recurring damp/mould issues. The card shows the outcode, area name, and percentage of properties with repeat visits, styled with visual emphasis using coral gradient and border.
+
+### Files Modified
+- src/hooks/useMultiVisitHotspot.ts (new)
+- src/components/MultiVisitHotspotCard.tsx (new)
+- src/pages/DashboardPage.tsx (integrated hotspot card component)
+
+### Learnings
+- Multi-visit percentage calculated as (multi_visit_count / property_count) * 100 per outcode
+- outcode_stats table includes multi_visit_count and property_count for efficient percentage calculation
+- Card visual emphasis achieved with coral gradient: border-[#d16b55]/30 and bg-gradient-to-br from-[#d16b55]/5
