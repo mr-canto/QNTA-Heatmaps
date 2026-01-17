@@ -2,13 +2,22 @@ import { MapContainer, TileLayer, ZoomControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useProperties, type PropertyFilters } from "@/hooks/useProperties";
 import HeatmapLayer from "@/components/HeatmapLayer";
+import MarkerLayer from "@/components/MarkerLayer";
+import ClusterLayer from "@/components/ClusterLayer";
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { Flame, MapPin, Grid3X3 } from "lucide-react";
 
 // Southwark centre coordinates
 const SOUTHWARK_CENTER: [number, number] = [51.47, -0.065];
 const DEFAULT_ZOOM = 13;
 
+type ViewMode = "heatmap" | "markers" | "clusters";
+
 export default function HeatmapPage() {
+  // State for view mode
+  const [viewMode, setViewMode] = useState<ViewMode>("heatmap");
+
   // State for filters (will be expanded in future stories)
   const [filters] = useState<PropertyFilters>({});
 
@@ -17,6 +26,51 @@ export default function HeatmapPage() {
 
   return (
     <div className="h-[calc(100vh-72px)] w-full relative">
+      {/* View Mode Toggle */}
+      <div className="absolute top-4 left-4 z-[1000] bg-white rounded-[10px] border border-[#dce3e7] shadow-[0_6px_16px_rgba(15,23,42,0.08)] p-1">
+        <div className="flex gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setViewMode("heatmap")}
+            className={`px-3 py-2 text-xs font-semibold transition-all rounded-lg ${
+              viewMode === "heatmap"
+                ? "bg-white text-[#1f2a37] shadow-[0_6px_16px_rgba(15,23,42,0.08)] border border-[rgba(15,23,42,0.08)]"
+                : "text-[#627083] hover:text-[#1f2a37]"
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5" />
+            Heatmap
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setViewMode("markers")}
+            className={`px-3 py-2 text-xs font-semibold transition-all rounded-lg ${
+              viewMode === "markers"
+                ? "bg-white text-[#1f2a37] shadow-[0_6px_16px_rgba(15,23,42,0.08)] border border-[rgba(15,23,42,0.08)]"
+                : "text-[#627083] hover:text-[#1f2a37]"
+            }`}
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            Markers
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setViewMode("clusters")}
+            className={`px-3 py-2 text-xs font-semibold transition-all rounded-lg ${
+              viewMode === "clusters"
+                ? "bg-white text-[#1f2a37] shadow-[0_6px_16px_rgba(15,23,42,0.08)] border border-[rgba(15,23,42,0.08)]"
+                : "text-[#627083] hover:text-[#1f2a37]"
+            }`}
+          >
+            <Grid3X3 className="w-3.5 h-3.5" />
+            Clusters
+          </Button>
+        </div>
+      </div>
+
       {isLoading && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/90 px-4 py-2 rounded-lg shadow-md text-sm text-[#627083]">
           Loading properties...
@@ -33,7 +87,15 @@ export default function HeatmapPage() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <ZoomControl position="topleft" />
-        {properties.length > 0 && <HeatmapLayer properties={properties} />}
+        {properties.length > 0 && viewMode === "heatmap" && (
+          <HeatmapLayer properties={properties} />
+        )}
+        {properties.length > 0 && viewMode === "markers" && (
+          <MarkerLayer properties={properties} />
+        )}
+        {properties.length > 0 && viewMode === "clusters" && (
+          <ClusterLayer properties={properties} />
+        )}
       </MapContainer>
     </div>
   );
