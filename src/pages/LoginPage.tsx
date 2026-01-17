@@ -15,10 +15,10 @@ export default function LoginPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect to home if already logged in
+  // Redirect to dashboard if already logged in
   useEffect(() => {
     if (user) {
-      navigate("/home", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [user, navigate]);
 
@@ -36,7 +36,7 @@ export default function LoginPage() {
       setError(signInError.message);
       setIsLoading(false);
     } else if (data.user) {
-      navigate("/home", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   };
 
