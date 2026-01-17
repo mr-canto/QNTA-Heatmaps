@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { queryClient } from "@/lib/queryClient";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
+import HeatmapPage from "@/pages/HeatmapPage";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
               <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/heatmap" element={<HeatmapPage />} />
                 </Route>
               </Route>
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
