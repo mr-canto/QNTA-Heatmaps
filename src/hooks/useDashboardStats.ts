@@ -5,6 +5,7 @@ export interface DashboardStats {
   totalProperties: number;
   singleVisitCount: number;
   multiVisitCount: number;
+  severeCount: number;
   importId: string | null;
   importDate: string | null;
 }
@@ -23,6 +24,7 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
       totalProperties: 0,
       singleVisitCount: 0,
       multiVisitCount: 0,
+      severeCount: 0,
       importId: null,
       importDate: null,
     };
@@ -36,6 +38,17 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
 
   if (statsError) {
     throw new Error(`Failed to fetch statistics: ${statsError.message}`);
+  }
+
+  // Query severe count (properties with 5+ visits) from properties table
+  const { count: severeCount, error: severeError } = await supabase
+    .from("properties")
+    .select("id", { count: "exact", head: true })
+    .eq("import_id", currentImport.id)
+    .gte("visit_count", 5);
+
+  if (severeError) {
+    throw new Error(`Failed to fetch severe count: ${severeError.message}`);
   }
 
   // Calculate totals
@@ -52,6 +65,7 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
     totalProperties: totals.totalProperties,
     singleVisitCount: totals.totalProperties - totals.multiVisitCount,
     multiVisitCount: totals.multiVisitCount,
+    severeCount: severeCount ?? 0,
     importId: currentImport.id,
     importDate: currentImport.uploaded_at,
   };

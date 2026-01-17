@@ -8,6 +8,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import PropertiesDonutChart from "@/components/PropertiesDonutChart";
+import VisitBreakdownPanel from "@/components/VisitBreakdownPanel";
 
 function getFirstName(email: string | undefined, fullName?: string): string {
   if (fullName) {
@@ -78,11 +79,15 @@ export default function DashboardPage() {
                     isLoading={isStatsLoading}
                   />
                 </div>
-                {/* Visit Breakdown Panel placeholder (US-008) */}
+                {/* Visit Breakdown Panel (US-008) */}
                 <div className="flex items-center justify-center rounded-lg bg-[#f4f7f6] border border-[#dce3e7] p-6">
-                  <p className="text-[#8996a5] text-sm">
-                    Visit breakdown will display here
-                  </p>
+                  <VisitBreakdownPanel
+                    singleVisitCount={stats?.singleVisitCount ?? 0}
+                    multiVisitCount={stats?.multiVisitCount ?? 0}
+                    severeCount={stats?.severeCount ?? 0}
+                    totalProperties={stats?.totalProperties ?? 0}
+                    isLoading={isStatsLoading}
+                  />
                 </div>
               </div>
             </CardContent>
