@@ -1,4 +1,6 @@
 import { useState, useCallback, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -11,32 +13,51 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from "lucide-react";
 import {
   parseFile,
   validateProperties,
+  geocodeProperties,
   type ParseResult,
   type ParseError,
   type ValidationResult,
+  type GeocodingResult,
+  type ExcludedProperty,
 } from "@/lib/importProcessor";
+import { saveImportToDatabase } from "@/lib/importService";
+import { useAuth } from "@/hooks/useAuth";
 
 interface FileError {
-  type: "size" | "format" | "noAddress" | "parse" | "noValidAddresses";
+  type: "size" | "format" | "noAddress" | "parse" | "noValidAddresses" | "geocoding" | "database";
   message: string;
+}
+
+interface ImportSuccess {
+  propertiesImported: number;
+  excludedCount: number;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const PREVIEW_ROWS = 100;
 
 export default function ImportPage() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [fileError, setFileError] = useState<FileError | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [importProgress, setImportProgress] = useState(0);
   const [showExcluded, setShowExcluded] = useState(false);
+  const [importSuccess, setImportSuccess] = useState<ImportSuccess | null>(null);
+  const [allExcluded, setAllExcluded] = useState<ExcludedProperty[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateFileSize = useCallback((file: File): FileError | null => {
@@ -58,6 +79,8 @@ export default function ImportPage() {
       setParseResult(null);
       setValidationResult(null);
       setShowExcluded(false);
+      setImportSuccess(null);
+      setAllExcluded([]);
       setSelectedFile(file);
       setIsProcessing(true);
       setProcessingProgress(10);
@@ -144,17 +167,97 @@ export default function ImportPage() {
     setValidationResult(null);
     setFileError(null);
     setShowExcluded(false);
+    setImportSuccess(null);
+    setAllExcluded([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   }, []);
 
-  const handleConfirm = useCallback(() => {
-    // TODO: Implement geocoding and database import in US-027c and US-028
-    console.log("Import confirmed for file:", selectedFile?.name);
-    console.log("Valid properties:", validationResult?.validProperties.length);
-    console.log("Excluded properties:", validationResult?.excludedProperties.length);
-  }, [selectedFile, validationResult]);
+  const handleConfirm = useCallback(async () => {
+    if (!validationResult || !selectedFile || !user) return;
+
+    setIsImporting(true);
+    setImportProgress(0);
+    setFileError(null);
+
+    try {
+      // Step 1: Geocode properties (0-60% progress)
+      setImportProgress(5);
+      let geocodingResult: GeocodingResult;
+
+      try {
+        geocodingResult = await geocodeProperties(
+          validationResult.validProperties,
+          (progress) => setImportProgress(5 + progress * 0.55)
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Geocoding failed";
+        setFileError({ type: "geocoding", message });
+        setIsImporting(false);
+        return;
+      }
+
+      // Combine excluded from validation and geocoding
+      const combinedExcluded = [
+        ...validationResult.excludedProperties,
+        ...geocodingResult.excludedProperties,
+      ];
+      setAllExcluded(combinedExcluded);
+
+      // Check if all properties failed geocoding
+      if (geocodingResult.geocodedProperties.length === 0) {
+        setFileError({
+          type: "geocoding",
+          message: "No properties could be geocoded. Please check the postcodes in your file.",
+        });
+        setIsImporting(false);
+        return;
+      }
+
+      // Step 2: Save to database (60-100% progress)
+      setImportProgress(65);
+      const importResult = await saveImportToDatabase(
+        geocodingResult.geocodedProperties,
+        selectedFile.name,
+        user.id
+      );
+
+      if (!importResult.success) {
+        setFileError({
+          type: "database",
+          message: importResult.error || "Failed to save import to database",
+        });
+        setIsImporting(false);
+        return;
+      }
+
+      setImportProgress(100);
+
+      // Invalidate queries to refresh data
+      await queryClient.invalidateQueries({ queryKey: ["imports"] });
+      await queryClient.invalidateQueries({ queryKey: ["properties"] });
+      await queryClient.invalidateQueries({ queryKey: ["outcodeStats"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboardStats"] });
+
+      // Show success state
+      setImportSuccess({
+        propertiesImported: importResult.propertiesImported,
+        excludedCount: combinedExcluded.length,
+      });
+
+      // Clear file state but keep success message
+      setSelectedFile(null);
+      setParseResult(null);
+      setValidationResult(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } finally {
+      setIsImporting(false);
+      setImportProgress(0);
+    }
+  }, [validationResult, selectedFile, user, queryClient]);
 
   // Summary stats
   const stats = useMemo(() => {
@@ -177,6 +280,31 @@ export default function ImportPage() {
             <CardTitle className="text-lg text-[#1f2a37]">Upload File</CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
+            {/* Import Success Message */}
+            {importSuccess && (
+              <div className="mb-6 flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-800">
+                    Import completed successfully
+                  </p>
+                  <p className="text-sm text-green-700">
+                    {importSuccess.propertiesImported.toLocaleString()} properties imported
+                    {importSuccess.excludedCount > 0 && (
+                      <>, {importSuccess.excludedCount.toLocaleString()} excluded</>
+                    )}
+                  </p>
+                  <Button
+                    onClick={() => navigate("/heatmap")}
+                    className="mt-3 bg-[#0f5d5e] hover:bg-[#0b4d4f] text-white"
+                    size="sm"
+                  >
+                    View on Heatmap
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Drag and Drop Zone */}
             <div
               onDrop={handleDrop}
@@ -218,19 +346,40 @@ export default function ImportPage() {
               </div>
             )}
 
+            {/* Import Progress */}
+            {isImporting && (
+              <div className="mt-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <Loader2 className="w-5 h-5 text-[#0f5d5e] animate-spin" />
+                  <span className="text-sm text-[#627083]">
+                    {importProgress < 60
+                      ? "Geocoding addresses..."
+                      : "Saving to database..."}
+                  </span>
+                </div>
+                <Progress value={importProgress} className="h-2" />
+              </div>
+            )}
+
             {/* Error Display */}
             {fileError && (
               <div className="mt-6 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-red-800">Upload Error</p>
+                  <p className="text-sm font-medium text-red-800">
+                    {fileError.type === "geocoding"
+                      ? "Geocoding Error"
+                      : fileError.type === "database"
+                        ? "Database Error"
+                        : "Upload Error"}
+                  </p>
                   <p className="text-sm text-red-700">{fileError.message}</p>
                 </div>
               </div>
             )}
 
             {/* Validation Results */}
-            {stats && !isProcessing && (
+            {stats && !isProcessing && !isImporting && !importSuccess && (
               <div className="mt-6">
                 {/* Success Message */}
                 <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
@@ -357,6 +506,7 @@ export default function ImportPage() {
                     variant="outline"
                     onClick={handleCancel}
                     className="border-[#dce3e7] text-[#627083] hover:bg-[#f7f9fb]"
+                    disabled={isImporting}
                   >
                     <X className="w-4 h-4" />
                     Cancel
@@ -364,11 +514,79 @@ export default function ImportPage() {
                   <Button
                     onClick={handleConfirm}
                     className="bg-[#0f5d5e] hover:bg-[#0b4d4f] text-white"
+                    disabled={isImporting}
                   >
-                    <CheckCircle className="w-4 h-4" />
-                    Confirm Import ({stats.validCount.toLocaleString()})
+                    {isImporting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        Confirm Import ({stats.validCount.toLocaleString()})
+                      </>
+                    )}
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {/* Post-Import Excluded List */}
+            {importSuccess && allExcluded.length > 0 && (
+              <div className="mt-4">
+                <button
+                  onClick={() => setShowExcluded(!showExcluded)}
+                  className="w-full flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-left"
+                >
+                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-amber-800">
+                      {allExcluded.length.toLocaleString()} address
+                      {allExcluded.length === 1 ? "" : "es"} were excluded
+                    </p>
+                    <p className="text-sm text-amber-700">
+                      Click to view details
+                    </p>
+                  </div>
+                  {showExcluded ? (
+                    <ChevronUp className="w-5 h-5 text-amber-600" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-amber-600" />
+                  )}
+                </button>
+
+                {showExcluded && (
+                  <div className="mt-2 border border-amber-200 rounded-lg overflow-hidden max-h-[200px] overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-amber-50 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-medium text-amber-800 border-b border-amber-200">
+                            Address
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-amber-800 border-b border-amber-200">
+                            Reason
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allExcluded.map((prop, idx) => (
+                          <tr
+                            key={idx}
+                            className="border-b border-amber-100 last:border-0"
+                          >
+                            <td className="px-4 py-2 text-amber-900 max-w-[300px] truncate">
+                              {prop.address}
+                            </td>
+                            <td className="px-4 py-2 text-amber-700">
+                              {prop.reason}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
