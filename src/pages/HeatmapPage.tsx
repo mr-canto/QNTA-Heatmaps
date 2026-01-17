@@ -11,8 +11,9 @@ import HeatmapStatsHeader from "@/components/HeatmapStatsHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { useState, useMemo } from "react";
-import { Flame, MapPin, Grid3X3, Search, X } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
+import { Flame, MapPin, Grid3X3, Search, X, Download } from "lucide-react";
+import type { Property } from "@/types/database.types";
 
 // Southwark centre coordinates
 const SOUTHWARK_CENTER: [number, number] = [51.47, -0.065];
@@ -61,6 +62,43 @@ export default function HeatmapPage() {
     if (!area) return null;
     return [area.lat, area.lon] as [number, number];
   }, [selectedArea, outcodeStats]);
+
+  // Export filtered data as CSV
+  const exportToCSV = useCallback(() => {
+    if (properties.length === 0) return;
+
+    // CSV headers
+    const headers = ["address", "postcode", "outcode", "visit_count"];
+
+    // Convert properties to CSV rows
+    const rows = properties.map((p: Property) => [
+      `"${(p.address || "").replace(/"/g, '""')}"`,
+      p.postcode || "",
+      p.outcode || "",
+      p.visit_count.toString(),
+    ]);
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.join(",")),
+    ].join("\n");
+
+    // Create filename with date
+    const date = new Date().toISOString().split("T")[0];
+    const filename = `heatmap-export-${date}.csv`;
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [properties]);
 
   return (
     <div className="h-[calc(100vh-72px)] w-full relative">
@@ -203,6 +241,18 @@ export default function HeatmapPage() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Export Button */}
+      <div className="absolute top-[17.5rem] left-4 z-[1000]">
+        <Button
+          onClick={exportToCSV}
+          disabled={properties.length === 0}
+          className="bg-[#0f5d5e] hover:bg-[#0b4d4f] text-white shadow-[0_6px_16px_rgba(15,23,42,0.08)] w-[200px]"
+        >
+          <Download className="w-4 h-4" />
+          Export CSV ({properties.length.toLocaleString()})
+        </Button>
       </div>
 
       {/* Area Statistics Panel */}
