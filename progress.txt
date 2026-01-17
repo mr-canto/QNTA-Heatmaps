@@ -15,6 +15,7 @@ Started: 2026-01-17
 - Use Recharts for charts: PieChart with innerRadius for donut, ResponsiveContainer for responsive sizing
 - useDashboardStats hook provides aggregated stats (totalProperties, singleVisitCount, multiVisitCount, severeCount) from current import
 - For count queries on properties table, use `select("id", { count: "exact", head: true })` pattern for efficiency
+- Leaflet maps use react-leaflet: MapContainer (wrapper), TileLayer (tiles), ZoomControl for controls - import "leaflet/dist/leaflet.css"
 
 ---
 
@@ -173,3 +174,130 @@ Created MultiVisitHotspotCard component and useMultiVisitHotspot hook to display
 - Multi-visit percentage calculated as (multi_visit_count / property_count) * 100 per outcode
 - outcode_stats table includes multi_visit_count and property_count for efficient percentage calculation
 - Card visual emphasis achieved with coral gradient: border-[#d16b55]/30 and bg-gradient-to-br from-[#d16b55]/5
+
+## 2026-01-17 - US-011: Biggest Increase Card
+
+### Implementation Summary
+Created BiggestIncreaseCard component and useBiggestIncrease hook to display the outcode with the largest percentage increase in visits since the previous import. When no previous import exists, the card shows "No previous data available". Uses teal gradient styling for visual emphasis.
+
+### Files Modified
+- src/hooks/useBiggestIncrease.ts (new)
+- src/components/BiggestIncreaseCard.tsx (new)
+- src/pages/DashboardPage.tsx (integrated increase card component)
+
+### Learnings
+- Comparing imports requires fetching the two most recent imports and their outcode_stats
+- Percentage change calculation: ((current - previous) / previous) * 100
+- Handle edge case where previous visits = 0 by treating as 100% increase
+- Teal gradient for positive metric emphasis: border-[#0f5d5e]/30 and bg-gradient-to-br from-[#0f5d5e]/5
+
+## 2026-01-17 - US-012: Quick Actions Row
+
+### Implementation Summary
+Created QuickActionsRow component with three action buttons: View Heatmap, Import Data, and Export Data. Each button uses ShadCN Button component with Lucide icons. View Heatmap and Import Data navigate to their respective routes. Export Data triggers CSV download of all properties from the current import snapshot, with filename including date and snapshot ID.
+
+### Files Modified
+- src/components/QuickActionsRow.tsx (new)
+- src/hooks/useExportData.ts (new)
+- src/pages/DashboardPage.tsx (replaced placeholder with QuickActionsRow component)
+
+### Learnings
+- React Query `enabled: false` prevents automatic fetching; use `refetch()` to trigger on demand
+- CSV generation: escape double quotes by doubling them, wrap address field in quotes to handle commas
+- Browser file download via Blob + URL.createObjectURL pattern with cleanup via revokeObjectURL
+
+## 2026-01-17 - US-013: Interactive Map Component
+
+### Implementation Summary
+Created HeatmapPage component with an interactive Leaflet map centred on Southwark. Installed leaflet, react-leaflet, and @types/leaflet dependencies. Added /heatmap route to App.tsx within the protected AppLayout structure. Map renders full-height below header with zoom controls.
+
+### Files Modified
+- package.json (added leaflet, react-leaflet, @types/leaflet)
+- src/pages/HeatmapPage.tsx (new)
+- src/App.tsx (added /heatmap route)
+- prd.json (marked US-013 as passes: true)
+
+### Learnings
+- react-leaflet uses MapContainer as wrapper, TileLayer for base map, ZoomControl for zoom
+- Import "leaflet/dist/leaflet.css" in component for proper map styling
+- MapContainer requires explicit height - use calc(100vh - 72px) to fill below header
+- Setting zoomControl={false} on MapContainer and adding separate ZoomControl allows position control
+
+## 2026-01-17 - US-014: Heatmap Visualisation Mode
+
+### Implementation Summary
+Added heatmap visualization to the map using the Leaflet.heat plugin. Created HeatmapLayer component that converts property data to heat points using visit_count as intensity. Created useProperties hook with filter support for fetching property data from the current import. Integrated into HeatmapPage with loading state indicator.
+
+### Files Modified
+- src/components/HeatmapLayer.tsx (new)
+- src/hooks/useProperties.ts (new)
+- src/pages/HeatmapPage.tsx (updated to integrate heatmap layer)
+
+### Learnings
+- Leaflet.heat requires imperative API via useMap() hook in react-leaflet
+- Heat data format is [lat, lng, intensity] tuples
+- Cleanup layer on unmount using map.removeLayer() in useEffect return
+- Module augmentation for leaflet.heat types can override @types/leaflet.heat if needed
+
+## 2026-01-17 - US-015: Marker Visualisation Mode
+
+### Implementation Summary
+Created MarkerLayer component using react-leaflet CircleMarker for individual property visualization. Markers are coloured by visit type (teal for single, coral for multi-visit) and scaled logarithmically based on visit_count. Implemented styled popup with banner header, address section with MapPin icon, and visit count section with Repeat icon. Added comprehensive Leaflet popup CSS styles to index.css matching design specifications.
+
+### Files Modified
+- src/components/MarkerLayer.tsx (new)
+- src/index.css (added Leaflet popup styles)
+
+### Learnings
+- react-leaflet CircleMarker provides native Leaflet circle markers with pathOptions for styling
+- Logarithmic scaling (Math.log2) provides better visual differentiation for visit counts
+- Leaflet popup styles require targeting .leaflet-popup-content-wrapper and .leaflet-popup-content
+- Lucide icons work seamlessly inside Leaflet popups via react-leaflet's Popup component
+
+## 2026-01-17 - US-016: Cluster Visualisation Mode
+
+### Implementation Summary
+Created ClusterLayer component using react-leaflet-cluster for performant clustering of thousands of property markers. Installed leaflet.markercluster and react-leaflet-cluster packages. Custom cluster icons display count with size and colour scaling based on cluster size. Property markers use divIcon for compatibility with clustering. Same popup styling as MarkerLayer.
+
+### Files Modified
+- src/components/ClusterLayer.tsx (new)
+- package.json (added leaflet.markercluster, react-leaflet-cluster, @types/leaflet.markercluster)
+
+### Learnings
+- react-leaflet-cluster provides MarkerClusterGroup component wrapping leaflet.markercluster
+- iconCreateFunction prop allows custom cluster icon creation with L.divIcon
+- For clustering, use Marker with divIcon instead of CircleMarker (CircleMarker not compatible)
+- Import MarkerCluster.css and MarkerCluster.Default.css for base cluster styles
+- zoomToBoundsOnClick enables click-to-zoom behaviour on clusters
+
+## 2026-01-17 - US-017: View Mode Toggle
+
+### Implementation Summary
+Added view mode toggle to HeatmapPage allowing users to switch between Heatmap, Markers, and Clusters visualizations. Implemented with ShadCN Button components and Lucide icons. Active mode is visually highlighted with shadow and border. Map updates immediately when mode is switched.
+
+### Files Modified
+- src/pages/HeatmapPage.tsx (added view mode toggle and conditional layer rendering)
+
+### Learnings
+- ViewMode type union ("heatmap" | "markers" | "clusters") provides type safety for mode state
+- Conditional rendering of layers based on mode works well with react-leaflet
+- View mode persists across filter changes since it's separate state from filters
+- Toggle styling uses absolute positioning with z-index above map
+
+## 2026-01-17 - US-018: Area Filter Dropdown
+
+### Implementation Summary
+Created AreaFilterDropdown component using ShadCN Select to allow filtering by postcode area. Added useOutcodeStats hook to fetch all outcodes with visit counts, area names, and coordinates. Added MapController component that uses react-leaflet's useMap hook to programmatically fly to selected area coordinates.
+
+### Files Modified
+- src/components/AreaFilterDropdown.tsx (new)
+- src/components/MapController.tsx (new)
+- src/components/ui/select.tsx (new - ShadCN component)
+- src/hooks/useOutcodeStats.ts (new)
+- src/pages/HeatmapPage.tsx (integrated area filter and map controller)
+
+### Learnings
+- useMap hook from react-leaflet provides access to Leaflet map instance for programmatic control
+- map.flyTo() provides smooth animated transition to new coordinates
+- ShadCN Select component uses Radix UI primitives for accessible dropdown
+- Outcode stats table includes lat/lon for centroid of each area, enabling zoom-to functionality
