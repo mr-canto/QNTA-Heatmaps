@@ -7,6 +7,7 @@ import MarkerLayer from "@/components/MarkerLayer";
 import ClusterLayer from "@/components/ClusterLayer";
 import MapController from "@/components/MapController";
 import AreaFilterDropdown from "@/components/AreaFilterDropdown";
+import HeatmapStatsHeader from "@/components/HeatmapStatsHeader";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { useState, useMemo } from "react";
@@ -58,8 +59,11 @@ export default function HeatmapPage() {
 
   return (
     <div className="h-[calc(100vh-72px)] w-full relative">
+      {/* Statistics Header */}
+      <HeatmapStatsHeader properties={properties} isLoading={isLoading} />
+
       {/* View Mode Toggle */}
-      <div className="absolute top-4 left-4 z-[1000] bg-white rounded-[10px] border border-[#dce3e7] shadow-[0_6px_16px_rgba(15,23,42,0.08)] p-1">
+      <div className="absolute top-14 left-4 z-[1000] bg-white rounded-[10px] border border-[#dce3e7] shadow-[0_6px_16px_rgba(15,23,42,0.08)] p-1">
         <div className="flex gap-1.5">
           <Button
             variant="ghost"
@@ -104,7 +108,7 @@ export default function HeatmapPage() {
       </div>
 
       {/* Visit Type Filter */}
-      <div className="absolute top-16 left-4 z-[1000] bg-white rounded-[10px] border border-[#dce3e7] shadow-[0_6px_16px_rgba(15,23,42,0.08)] p-1">
+      <div className="absolute top-[6.5rem] left-4 z-[1000] bg-white rounded-[10px] border border-[#dce3e7] shadow-[0_6px_16px_rgba(15,23,42,0.08)] p-1">
         <div className="flex gap-1.5">
           <Button
             variant="ghost"
@@ -146,7 +150,7 @@ export default function HeatmapPage() {
       </div>
 
       {/* Minimum Visits Slider */}
-      <div className="absolute top-28 left-4 z-[1000] bg-white rounded-[10px] border border-[#dce3e7] shadow-[0_6px_16px_rgba(15,23,42,0.08)] p-3 w-[200px]">
+      <div className="absolute top-[9.5rem] left-4 z-[1000] bg-white rounded-[10px] border border-[#dce3e7] shadow-[0_6px_16px_rgba(15,23,42,0.08)] p-3 w-[200px]">
         <div className="flex justify-between items-center mb-2">
           <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#627083]">
             Min Visits
@@ -170,7 +174,7 @@ export default function HeatmapPage() {
       </div>
 
       {/* Area Filter */}
-      <div className="absolute top-4 right-4 z-[1000]">
+      <div className="absolute top-14 right-4 z-[1000]">
         <AreaFilterDropdown
           areas={outcodeStats}
           selectedArea={selectedArea}
