@@ -1,7 +1,6 @@
 import MarkerClusterGroup from "react-leaflet-cluster";
-import { Marker, Popup } from "react-leaflet";
+import { Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
-import { MapPin, Repeat } from "lucide-react";
 import type { Property } from "@/types/database.types";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
@@ -13,8 +12,6 @@ interface ClusterLayerProps {
 // Design system colours
 const TEAL = "#0f5d5e";
 const CORAL = "#d16b55";
-const TEAL_SOFT = "#d9eceb";
-const CORAL_SOFT = "#f7e5df";
 
 // Create a custom divIcon for property markers
 function createPropertyIcon(property: Property): L.DivIcon {
@@ -74,6 +71,8 @@ function createClusterCustomIcon(cluster: L.MarkerCluster): L.DivIcon {
 }
 
 export default function ClusterLayer({ properties }: ClusterLayerProps) {
+  const map = useMap();
+
   return (
     <MarkerClusterGroup
       chunkedLoading
@@ -85,7 +84,6 @@ export default function ClusterLayer({ properties }: ClusterLayerProps) {
     >
       {properties.map((property) => {
         const isMultiVisit = property.visit_count > 1;
-        const color = isMultiVisit ? CORAL : TEAL;
 
         return (
           <Marker
@@ -99,19 +97,21 @@ export default function ClusterLayer({ properties }: ClusterLayerProps) {
               >
                 {/* Banner Header */}
                 <div
-                  className="popup-banner"
-                  style={{ backgroundColor: color }}
+                  className={`popup-banner ${isMultiVisit ? "multiple" : "single"}`}
                 >
-                  <span className="banner-title">
-                    {isMultiVisit ? "Recurring Issue" : "Single Visit"}
+                  <span className="banner-title">Property Details</span>
+                  <span className={`badge-header ${isMultiVisit ? "multiple" : "single"}`}>
+                    <span className="dot"></span>
+                    {isMultiVisit ? "Multiple Visits" : "Single Visit"}
                   </span>
-                  <div className="badge-header">
-                    <span
-                      className="dot"
-                      style={{ backgroundColor: "#fff" }}
-                    ></span>
-                    {isMultiVisit ? "Multi-Visit" : "Single Visit"}
-                  </div>
+                  <button
+                    type="button"
+                    className="popup-close"
+                    onClick={() => map.closePopup()}
+                    aria-label="Close popup"
+                  >
+                    &times;
+                  </button>
                 </div>
 
                 {/* Popup Body */}
@@ -120,15 +120,11 @@ export default function ClusterLayer({ properties }: ClusterLayerProps) {
                   <div className="info-section">
                     <div
                       className="info-icon location"
-                      style={{
-                        backgroundColor: isMultiVisit ? CORAL_SOFT : TEAL_SOFT,
-                      }}
                     >
-                      <MapPin
-                        size={16}
-                        strokeWidth={2}
-                        style={{ stroke: color }}
-                      />
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                        <circle cx="12" cy="10" r="3" />
+                      </svg>
                     </div>
                     <div className="info-content">
                       <div className="info-label">Address</div>
@@ -140,36 +136,18 @@ export default function ClusterLayer({ properties }: ClusterLayerProps) {
                   <div className="info-section">
                     <div
                       className="info-icon visits"
-                      style={{
-                        backgroundColor: isMultiVisit ? CORAL_SOFT : TEAL_SOFT,
-                      }}
                     >
-                      <Repeat
-                        size={16}
-                        strokeWidth={2}
-                        style={{ stroke: color }}
-                      />
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 20V10" />
+                        <path d="M12 20V4" />
+                        <path d="M6 20v-6" />
+                      </svg>
                     </div>
                     <div className="info-content">
                       <div className="info-label">Total Visits</div>
-                      <div className="info-value highlight" style={{ color }}>
+                      <div className="info-value highlight">
                         {property.visit_count}
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Status Footer */}
-                  <div className="status-footer">
-                    <div
-                      className={`badge ${isMultiVisit ? "multiple" : "single"}`}
-                    >
-                      <span
-                        className="dot"
-                        style={{ backgroundColor: color }}
-                      ></span>
-                      {isMultiVisit
-                        ? `${property.visit_count} recorded visits`
-                        : "Single recorded visit"}
                     </div>
                   </div>
                 </div>

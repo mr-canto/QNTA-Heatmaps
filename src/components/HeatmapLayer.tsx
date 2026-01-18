@@ -37,22 +37,20 @@ export default function HeatmapLayer({ properties }: HeatmapLayerProps) {
       p.visit_count,
     ]);
 
-    // Custom gradient using the 5-colour scale from design specs
-    // #2f7ab8 (blue), #3aa6b9 (teal), #f1d77a (yellow), #f2a65a (orange), #d45a4b (red)
+    // Custom gradient using the HTML heatmap scale
     const gradient: Record<number, string> = {
-      0.0: "#2f7ab8",
-      0.25: "#3aa6b9",
-      0.5: "#f1d77a",
-      0.75: "#f2a65a",
+      0.2: "#2f7ab8",
+      0.4: "#3aa6b9",
+      0.6: "#f1d77a",
+      0.8: "#f2a65a",
       1.0: "#d45a4b",
     };
 
     // Create the heat layer
     const heatLayer = L.heatLayer(heatData, {
-      radius: 25,
-      blur: 15,
-      maxZoom: 17,
-      max: 10, // Max intensity value
+      radius: 18,
+      blur: 22,
+      maxZoom: 16,
       gradient,
     });
 

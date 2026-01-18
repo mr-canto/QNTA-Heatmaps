@@ -104,6 +104,14 @@ SE15=Peckham, SE1=Borough, SE17=Walworth, SE16=Rotherhithe, SE5=Camberwell, SE22
 - Geocoding via Postcodes.io API (no API key needed)
 - Failed geocoding results in property exclusion
 
+## Test Credentials
+
+For local development and testing:
+
+- **Name:** Dustin Dampwell
+- **Email:** test@example.com
+- **Password:** Password123
+
 ## Claude Behavior Rules
 
 ### Response Style
@@ -114,3 +122,12 @@ SE15=Peckham, SE1=Borough, SE17=Walworth, SE16=Rotherhithe, SE5=Camberwell, SE22
 
 - `AGENTS.md` must always be kept in sync with `CLAUDE.md`. They must contain identical content.
 - Whenever `CLAUDE.md` is modified, immediately update `AGENTS.md` with the same changes.
+
+### Database Operations
+
+- **Never use destructive commands** like `supabase db push` or `supabase db reset` without explicit user permission.
+- Always prefer migration-based approaches as the default:
+  - Use `supabase migration up` to apply migrations
+  - Use `supabase migration new <name>` to create new migrations
+  - Use `supabase migration list` to check migration status
+- If a destructive action is technically necessary or preferred, **always ask for user permission first** and explain why the destructive approach is needed.

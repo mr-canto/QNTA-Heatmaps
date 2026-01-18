@@ -1,5 +1,4 @@
-import { CircleMarker, Popup } from "react-leaflet";
-import { MapPin, Repeat } from "lucide-react";
+import { CircleMarker, Popup, useMap } from "react-leaflet";
 import type { Property } from "@/types/database.types";
 
 interface MarkerLayerProps {
@@ -9,17 +8,15 @@ interface MarkerLayerProps {
 // Design system colours
 const TEAL = "#0f5d5e";
 const CORAL = "#d16b55";
-const TEAL_SOFT = "#d9eceb";
-const CORAL_SOFT = "#f7e5df";
 
-// Calculate marker radius based on visit count
+// Calculate marker radius based on visit count (HTML)
 function getMarkerRadius(visitCount: number): number {
-  // Base radius of 6, scales with visit count
-  // Max of 16 for very high visit counts
-  return Math.min(6 + Math.log2(visitCount) * 3, 16);
+  return Math.min(5 + visitCount * 2, 20);
 }
 
 export default function MarkerLayer({ properties }: MarkerLayerProps) {
+  const map = useMap();
+
   return (
     <>
       {properties.map((property) => {
@@ -34,9 +31,9 @@ export default function MarkerLayer({ properties }: MarkerLayerProps) {
             radius={radius}
             pathOptions={{
               fillColor: color,
-              fillOpacity: 0.8,
-              color: "#fff",
-              weight: 2,
+              fillOpacity: 0.82,
+              color: "#f8fafb",
+              weight: 1,
             }}
           >
             <Popup className="property-popup">
@@ -46,18 +43,20 @@ export default function MarkerLayer({ properties }: MarkerLayerProps) {
                 {/* Banner Header */}
                 <div
                   className={`popup-banner ${isMultiVisit ? "multiple" : "single"}`}
-                  style={{ backgroundColor: color }}
                 >
-                  <span className="banner-title">
-                    {isMultiVisit ? "Recurring Issue" : "Single Visit"}
+                  <span className="banner-title">Property Details</span>
+                  <span className={`badge-header ${isMultiVisit ? "multiple" : "single"}`}>
+                    <span className="dot"></span>
+                    {isMultiVisit ? "Multiple Visits" : "Single Visit"}
                   </span>
-                  <div className="badge-header">
-                    <span
-                      className="dot"
-                      style={{ backgroundColor: "#fff" }}
-                    ></span>
-                    {isMultiVisit ? "Multi-Visit" : "Single Visit"}
-                  </div>
+                  <button
+                    type="button"
+                    className="popup-close"
+                    onClick={() => map.closePopup()}
+                    aria-label="Close popup"
+                  >
+                    &times;
+                  </button>
                 </div>
 
                 {/* Popup Body */}
@@ -66,15 +65,11 @@ export default function MarkerLayer({ properties }: MarkerLayerProps) {
                   <div className="info-section">
                     <div
                       className="info-icon location"
-                      style={{
-                        backgroundColor: isMultiVisit ? CORAL_SOFT : TEAL_SOFT,
-                      }}
                     >
-                      <MapPin
-                        size={16}
-                        strokeWidth={2}
-                        style={{ stroke: color }}
-                      />
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                        <circle cx="12" cy="10" r="3" />
+                      </svg>
                     </div>
                     <div className="info-content">
                       <div className="info-label">Address</div>
@@ -86,36 +81,18 @@ export default function MarkerLayer({ properties }: MarkerLayerProps) {
                   <div className="info-section">
                     <div
                       className="info-icon visits"
-                      style={{
-                        backgroundColor: isMultiVisit ? CORAL_SOFT : TEAL_SOFT,
-                      }}
                     >
-                      <Repeat
-                        size={16}
-                        strokeWidth={2}
-                        style={{ stroke: color }}
-                      />
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 20V10" />
+                        <path d="M12 20V4" />
+                        <path d="M6 20v-6" />
+                      </svg>
                     </div>
                     <div className="info-content">
                       <div className="info-label">Total Visits</div>
-                      <div className="info-value highlight" style={{ color }}>
+                      <div className="info-value highlight">
                         {property.visit_count}
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Status Footer */}
-                  <div className="status-footer">
-                    <div
-                      className={`badge ${isMultiVisit ? "multiple" : "single"}`}
-                    >
-                      <span
-                        className="dot"
-                        style={{ backgroundColor: color }}
-                      ></span>
-                      {isMultiVisit
-                        ? `${property.visit_count} recorded visits`
-                        : "Single recorded visit"}
                     </div>
                   </div>
                 </div>
