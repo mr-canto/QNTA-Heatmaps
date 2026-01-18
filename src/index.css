@@ -141,7 +141,7 @@ body {
 /* Zoom control positioning and styling (match HTML) */
 .leaflet-top.leaflet-left {
   top: 18px;
-  left: calc(24px + 296px + 12px);
+  left: calc(24px + 280px + 12px);
 }
 
 .leaflet-control-zoom {
@@ -192,10 +192,57 @@ body {
   border-bottom: none !important;
 }
 
+/* Controls panel toggle styles (HTML parity) */
+.controls .toggle-group {
+  display: flex;
+  gap: 6px;
+  background: #eef2f1;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid #dce3e7;
+}
+
+.controls .toggle-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  height: auto;
+  min-height: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #627083;
+  border-radius: 8px;
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.controls .toggle-btn:hover {
+  color: #1f2a37;
+}
+
+.controls .toggle-btn.active {
+  background: #ffffff;
+  color: #1f2a37;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  border-color: rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.controls .toggle-btn:focus-visible {
+  outline: 2px solid rgba(15, 93, 94, 0.35);
+  outline-offset: 2px;
+}
+
 @media screen and (max-width: 1024px) {
   .leaflet-top.leaflet-left {
     top: 18px;
-    left: calc(16px + 260px + 12px);
+    left: calc(16px + 240px + 12px);
   }
 }
 
@@ -208,6 +255,22 @@ body {
   .leaflet-control-zoom {
     margin-top: 0 !important;
     margin-left: 0 !important;
+  }
+
+  .controls .toggle-group {
+    flex-wrap: wrap;
+  }
+
+  .controls .toggle-btn {
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+
+  .controls .toggle-btn:nth-child(3) {
+    flex: 1 1 100%;
+    margin-top: 5px;
   }
 }
 

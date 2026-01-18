@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Flame, MapPin, Grid3X3, Search, X, Download, History, SlidersHorizontal, BarChart3 } from "lucide-react";
+import { Search, X, Download, History, SlidersHorizontal, BarChart3 } from "lucide-react";
 import type { Property } from "@/types/database.types";
 
 // Southwark centre coordinates
@@ -290,8 +290,8 @@ export default function HeatmapPage() {
       {/* Controls Panel - Left Side */}
       <div
         className={`controls fixed z-[1002] bg-white border border-[#dce3e7] shadow-[0_20px_45px_rgba(15,23,42,0.16)] backdrop-blur-[6px] transition-transform duration-300 ease-out
-          md:top-[calc(72px+18px)] md:left-6 md:w-[296px] md:rounded-[14px] md:p-4 md:translate-x-0
-          max-lg:w-[260px] max-lg:left-4 max-lg:p-3.5
+          md:top-[calc(72px+18px)] md:left-6 md:w-[280px] md:rounded-[14px] md:p-4 md:translate-x-0
+          max-lg:w-[240px] max-lg:left-4 max-lg:p-3.5
           max-md:top-0 max-md:left-0 max-md:w-[280px] max-md:max-w-[85vw] max-md:h-screen max-md:max-h-screen max-md:overflow-y-auto max-md:rounded-none max-md:pt-[72px] max-md:px-4 max-md:pb-5
           max-sm:w-full max-sm:max-w-full
           ${isMobile ? (controlsPanelOpen ? "translate-x-0" : "-translate-x-full") : ""}`}
@@ -310,36 +310,35 @@ export default function HeatmapPage() {
 
         {/* Snapshot Selector */}
         <div className="mb-[18px]">
-          <div className="flex items-center gap-2 mb-2.5">
-            <History className="w-3.5 h-3.5 text-[#627083]" />
+          <div className="flex items-center gap-3">
             <span className="text-[11px] font-bold text-[#627083] uppercase tracking-[0.14em]">
               Snapshot
             </span>
+            <Select
+              value={selectedImportId ?? "current"}
+              onValueChange={(value) =>
+                setSelectedImportId(value === "current" ? null : value)
+              }
+            >
+              <SelectTrigger className="ml-auto w-[160px] text-[12px] border-[#dce3e7] bg-[#eef2f1] rounded-[10px] max-md:py-3 max-md:text-[13px]">
+                <SelectValue placeholder="Select snapshot" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="current">Current</SelectItem>
+                {imports
+                  .filter((i) => !i.is_current)
+                  .map((imp) => (
+                    <SelectItem key={imp.id} value={imp.id}>
+                      {new Date(imp.uploaded_at).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Select
-            value={selectedImportId ?? "current"}
-            onValueChange={(value) =>
-              setSelectedImportId(value === "current" ? null : value)
-            }
-          >
-            <SelectTrigger className="w-full text-[12px] border-[#dce3e7] bg-[#eef2f1] rounded-[10px] max-md:py-3 max-md:text-[13px]">
-              <SelectValue placeholder="Select snapshot" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="current">Current</SelectItem>
-              {imports
-                .filter((i) => !i.is_current)
-                .map((imp) => (
-                  <SelectItem key={imp.id} value={imp.id}>
-                    {new Date(imp.uploaded_at).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
         </div>
 
         <div className="border-t border-[#dce3e7] my-[18px]" />
@@ -349,44 +348,29 @@ export default function HeatmapPage() {
           <div className="text-[11px] font-bold text-[#627083] uppercase tracking-[0.14em] mb-2.5">
             View Mode
           </div>
-          <div className="flex gap-1.5 bg-[#eef2f1] p-1 rounded-[10px] border border-[#dce3e7] max-md:flex-wrap">
+          <div className="toggle-group">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setViewMode("heatmap")}
-              className={`flex-1 min-w-0 h-auto px-2.5 py-2 text-xs font-semibold transition-all rounded-lg max-md:flex-[1_1_calc(50%-3px)] max-md:py-2.5 ${
-                viewMode === "heatmap"
-                  ? "bg-white text-[#1f2a37] shadow-[0_6px_16px_rgba(15,23,42,0.08)] border border-[rgba(15,23,42,0.08)] -translate-y-px"
-                  : "text-[#627083] hover:text-[#1f2a37] border-transparent"
-              }`}
+              className={`toggle-btn ${viewMode === "heatmap" ? "active" : ""}`}
             >
-              <Flame className="w-3.5 h-3.5" />
               Heatmap
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setViewMode("markers")}
-              className={`flex-1 min-w-0 h-auto px-2.5 py-2 text-xs font-semibold transition-all rounded-lg max-md:flex-[1_1_calc(50%-3px)] max-md:py-2.5 ${
-                viewMode === "markers"
-                  ? "bg-white text-[#1f2a37] shadow-[0_6px_16px_rgba(15,23,42,0.08)] border border-[rgba(15,23,42,0.08)] -translate-y-px"
-                  : "text-[#627083] hover:text-[#1f2a37] border-transparent"
-              }`}
+              className={`toggle-btn ${viewMode === "markers" ? "active" : ""}`}
             >
-              <MapPin className="w-3.5 h-3.5" />
               Markers
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setViewMode("clusters")}
-              className={`flex-1 min-w-0 h-auto px-2.5 py-2 text-xs font-semibold transition-all rounded-lg max-md:flex-[1_1_100%] max-md:py-2.5 max-md:mt-1.5 ${
-                viewMode === "clusters"
-                  ? "bg-white text-[#1f2a37] shadow-[0_6px_16px_rgba(15,23,42,0.08)] border border-[rgba(15,23,42,0.08)] -translate-y-px"
-                  : "text-[#627083] hover:text-[#1f2a37] border-transparent"
-              }`}
+              className={`toggle-btn ${viewMode === "clusters" ? "active" : ""}`}
             >
-              <Grid3X3 className="w-3.5 h-3.5" />
               Clusters
             </Button>
           </div>
@@ -397,16 +381,12 @@ export default function HeatmapPage() {
           <div className="text-[11px] font-bold text-[#627083] uppercase tracking-[0.14em] mb-2.5">
             Filter by Visits
           </div>
-          <div className="flex gap-1.5 bg-[#eef2f1] p-1 rounded-[10px] border border-[#dce3e7] max-md:flex-wrap">
+          <div className="toggle-group">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setVisitType("all")}
-              className={`flex-1 min-w-0 h-auto px-2.5 py-2 text-xs font-semibold transition-all rounded-lg max-md:flex-[1_1_calc(50%-3px)] max-md:py-2.5 ${
-                visitType === "all"
-                  ? "bg-white text-[#1f2a37] shadow-[0_6px_16px_rgba(15,23,42,0.08)] border border-[rgba(15,23,42,0.08)] -translate-y-px"
-                  : "text-[#627083] hover:text-[#1f2a37] border-transparent"
-              }`}
+              className={`toggle-btn ${visitType === "all" ? "active" : ""}`}
             >
               All
             </Button>
@@ -414,11 +394,7 @@ export default function HeatmapPage() {
               variant="ghost"
               size="sm"
               onClick={() => setVisitType("single")}
-              className={`flex-1 min-w-0 h-auto px-2.5 py-2 text-xs font-semibold transition-all rounded-lg max-md:flex-[1_1_calc(50%-3px)] max-md:py-2.5 ${
-                visitType === "single"
-                  ? "bg-white text-[#1f2a37] shadow-[0_6px_16px_rgba(15,23,42,0.08)] border border-[rgba(15,23,42,0.08)] -translate-y-px"
-                  : "text-[#627083] hover:text-[#1f2a37] border-transparent"
-              }`}
+              className={`toggle-btn ${visitType === "single" ? "active" : ""}`}
             >
               Single
             </Button>
@@ -426,11 +402,7 @@ export default function HeatmapPage() {
               variant="ghost"
               size="sm"
               onClick={() => setVisitType("multi")}
-              className={`flex-1 min-w-0 h-auto px-2.5 py-2 text-xs font-semibold transition-all rounded-lg max-md:flex-[1_1_100%] max-md:py-2.5 max-md:mt-1.5 ${
-                visitType === "multi"
-                  ? "bg-white text-[#1f2a37] shadow-[0_6px_16px_rgba(15,23,42,0.08)] border border-[rgba(15,23,42,0.08)] -translate-y-px"
-                  : "text-[#627083] hover:text-[#1f2a37] border-transparent"
-              }`}
+              className={`toggle-btn ${visitType === "multi" ? "active" : ""}`}
             >
               Multiple
             </Button>
