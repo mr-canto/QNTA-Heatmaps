@@ -2,6 +2,11 @@ import { useEffect } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
 
+// Extend Leaflet Popup type to include internal _adjustPan method
+interface PopupWithAdjustPan extends L.Popup {
+  _adjustPan?: () => void;
+}
+
 interface MapControllerProps {
   center?: [number, number] | null;
   zoom?: number;
@@ -62,17 +67,18 @@ export default function MapController({ center, zoom }: MapControllerProps) {
 
     const handlePopupOpen = (e: L.PopupEvent) => {
       const padding = getPopupPadding();
-      e.popup.options.autoPan = true;
-      e.popup.options.keepInView = true;
-      e.popup.options.autoPanPaddingTopLeft = padding.topLeft;
-      e.popup.options.autoPanPaddingBottomRight = padding.bottomRight;
-      if (typeof e.popup._adjustPan === "function") {
-        e.popup._adjustPan();
+      const popup = e.popup as PopupWithAdjustPan;
+      popup.options.autoPan = true;
+      popup.options.keepInView = true;
+      popup.options.autoPanPaddingTopLeft = padding.topLeft;
+      popup.options.autoPanPaddingBottomRight = padding.bottomRight;
+      if (typeof popup._adjustPan === "function") {
+        popup._adjustPan();
       }
     };
 
     const handleResize = () => {
-      const popup = (map as L.Map & { _popup?: L.Popup })._popup;
+      const popup = (map as L.Map & { _popup?: PopupWithAdjustPan })._popup;
       if (!popup) return;
       const padding = getPopupPadding();
       popup.options.autoPanPaddingTopLeft = padding.topLeft;

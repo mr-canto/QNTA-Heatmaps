@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
+import { logger } from "./logger";
 
 export interface ParsedRow {
   address: string;
@@ -585,6 +586,16 @@ export function validateProperties(
 const GEOCODING_BATCH_SIZE = 100;
 
 /**
+ * Maximum number of retry attempts for failed API requests.
+ */
+const MAX_RETRY_ATTEMPTS = 3;
+
+/**
+ * Base delay in milliseconds for exponential backoff.
+ */
+const BASE_RETRY_DELAY_MS = 1000;
+
+/**
  * Postcodes.io bulk lookup response structure.
  */
 interface PostcodesIoResult {
@@ -603,8 +614,110 @@ interface PostcodesIoResponse {
 }
 
 /**
+ * Sleep for a specified number of milliseconds.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Calculate exponential backoff delay with jitter.
+ * @param attempt - The current attempt number (0-based)
+ * @returns Delay in milliseconds
+ */
+function calculateBackoffDelay(attempt: number): number {
+  // Exponential backoff: 1s, 2s, 4s, etc.
+  const exponentialDelay = BASE_RETRY_DELAY_MS * Math.pow(2, attempt);
+
+  // Add jitter (0-25% of the delay) to prevent thundering herd
+  const jitter = Math.random() * 0.25 * exponentialDelay;
+
+  return exponentialDelay + jitter;
+}
+
+/**
+ * Fetch postcodes with retry logic and exponential backoff.
+ * @param batch - Array of postcodes to geocode
+ * @returns PostcodesIoResponse or null if all retries failed
+ */
+async function fetchPostcodesWithRetry(
+  batch: string[]
+): Promise<PostcodesIoResponse | null> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch("https://api.postcodes.io/postcodes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ postcodes: batch }),
+      });
+
+      if (response.ok) {
+        return await response.json();
+      }
+
+      // Handle rate limiting (429) specially - always retry with longer delay
+      if (response.status === 429) {
+        logger.warn("Postcodes.io rate limit hit, backing off", {
+          attempt: attempt + 1,
+          maxAttempts: MAX_RETRY_ATTEMPTS,
+        });
+
+        if (attempt < MAX_RETRY_ATTEMPTS - 1) {
+          // Double the delay for rate limiting
+          await sleep(calculateBackoffDelay(attempt) * 2);
+          continue;
+        }
+      }
+
+      // Server errors (5xx) are retryable
+      if (response.status >= 500 && attempt < MAX_RETRY_ATTEMPTS - 1) {
+        logger.warn("Postcodes.io server error, retrying", {
+          status: response.status,
+          attempt: attempt + 1,
+          maxAttempts: MAX_RETRY_ATTEMPTS,
+        });
+        await sleep(calculateBackoffDelay(attempt));
+        continue;
+      }
+
+      // Client errors (4xx except 429) are not retryable
+      logger.error("Postcodes.io API error", {
+        status: response.status,
+        batchSize: batch.length,
+      });
+      return null;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Network errors are retryable
+      if (attempt < MAX_RETRY_ATTEMPTS - 1) {
+        logger.warn("Geocoding request failed, retrying", {
+          error: lastError.message,
+          attempt: attempt + 1,
+          maxAttempts: MAX_RETRY_ATTEMPTS,
+        });
+        await sleep(calculateBackoffDelay(attempt));
+        continue;
+      }
+    }
+  }
+
+  logger.error("Geocoding batch failed after all retries", {
+    error: lastError?.message || "Unknown error",
+    batchSize: batch.length,
+  });
+
+  return null;
+}
+
+/**
  * Geocode an array of postcodes using Postcodes.io bulk lookup API.
  * Returns a map of postcode -> {lat, lon} for successful lookups.
+ * Implements retry logic with exponential backoff for resilience.
  */
 async function geocodePostcodes(
   postcodes: string[]
@@ -615,23 +728,9 @@ async function geocodePostcodes(
   for (let i = 0; i < postcodes.length; i += GEOCODING_BATCH_SIZE) {
     const batch = postcodes.slice(i, i + GEOCODING_BATCH_SIZE);
 
-    try {
-      const response = await fetch("https://api.postcodes.io/postcodes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ postcodes: batch }),
-      });
+    const data = await fetchPostcodesWithRetry(batch);
 
-      if (!response.ok) {
-        // API error - skip this batch but continue
-        console.error(`Postcodes.io API error: ${response.status}`);
-        continue;
-      }
-
-      const data: PostcodesIoResponse = await response.json();
-
+    if (data) {
       for (const item of data.result) {
         if (item.result) {
           results.set(item.query.toUpperCase().replace(/\s+/g, " "), {
@@ -640,10 +739,6 @@ async function geocodePostcodes(
           });
         }
       }
-    } catch (error) {
-      // Network error - skip this batch but continue
-      console.error("Geocoding batch failed:", error);
-      continue;
     }
   }
 

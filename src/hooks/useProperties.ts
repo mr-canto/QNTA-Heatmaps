@@ -10,6 +10,20 @@ export interface PropertyFilters {
   searchTerm?: string;
 }
 
+/**
+ * Sanitize a search term for safe use in PostgreSQL ILIKE patterns.
+ * Escapes special characters: %, _, \, ', "
+ * This prevents SQL injection attacks through the search filter.
+ */
+function sanitizeSearchTerm(term: string): string {
+  return term
+    .replace(/\\/g, "\\\\") // Escape backslashes first
+    .replace(/%/g, "\\%")   // Escape percent signs
+    .replace(/_/g, "\\_")   // Escape underscores
+    .replace(/'/g, "''")    // Escape single quotes (SQL standard)
+    .replace(/"/g, '\\"');  // Escape double quotes
+}
+
 async function fetchProperties(filters: PropertyFilters): Promise<Property[]> {
   // Determine which import to use
   let importId = filters.importId;
@@ -52,10 +66,10 @@ async function fetchProperties(filters: PropertyFilters): Promise<Property[]> {
     query = query.gte("visit_count", filters.minVisits);
   }
 
-  // Apply search filter
+  // Apply search filter with sanitized input to prevent SQL injection
   if (filters.searchTerm && filters.searchTerm.trim()) {
-    const term = filters.searchTerm.trim();
-    query = query.or(`address.ilike.%${term}%,postcode.ilike.%${term}%`);
+    const sanitizedTerm = sanitizeSearchTerm(filters.searchTerm.trim());
+    query = query.or(`address.ilike.%${sanitizedTerm}%,postcode.ilike.%${sanitizedTerm}%`);
   }
 
   const { data, error } = await query;

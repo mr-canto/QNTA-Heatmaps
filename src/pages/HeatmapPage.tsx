@@ -201,6 +201,36 @@ export default function HeatmapPage() {
     return [area.lat, area.lon] as [number, number];
   }, [selectedArea, outcodeStats]);
 
+  /**
+   * Sanitize a value for CSV export to prevent formula injection attacks.
+   * Prefixes values starting with formula characters (=, +, -, @, tab, carriage return)
+   * with a single quote to prevent spreadsheet applications from interpreting them as formulas.
+   */
+  const sanitizeCsvValue = useCallback((value: string): string => {
+    if (!value) return "";
+
+    // Check if the value starts with a formula character
+    const firstChar = value.charAt(0);
+    const formulaChars = ["=", "+", "-", "@", "\t", "\r"];
+
+    if (formulaChars.includes(firstChar)) {
+      // Prefix with a single quote to prevent formula interpretation
+      return `'${value}`;
+    }
+
+    return value;
+  }, []);
+
+  /**
+   * Escape and sanitize a field for CSV format.
+   * Handles quoting, escaping double quotes, and formula injection prevention.
+   */
+  const escapeCsvField = useCallback((value: string): string => {
+    const sanitized = sanitizeCsvValue(value);
+    // Escape double quotes and wrap in quotes
+    return `"${sanitized.replace(/"/g, '""')}"`;
+  }, [sanitizeCsvValue]);
+
   // Export filtered data as CSV
   const exportToCSV = useCallback(() => {
     if (properties.length === 0) return;
@@ -208,12 +238,12 @@ export default function HeatmapPage() {
     // CSV headers
     const headers = ["address", "postcode", "outcode", "visit_count"];
 
-    // Convert properties to CSV rows
+    // Convert properties to CSV rows with formula injection prevention
     const rows = properties.map((p: Property) => [
-      `"${(p.address || "").replace(/"/g, '""')}"`,
-      p.postcode || "",
-      p.outcode || "",
-      p.visit_count.toString(),
+      escapeCsvField(p.address || ""),
+      escapeCsvField(p.postcode || ""),
+      escapeCsvField(p.outcode || ""),
+      p.visit_count.toString(), // Numbers are safe
     ]);
 
     // Combine headers and rows
@@ -236,7 +266,7 @@ export default function HeatmapPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }, [properties]);
+  }, [properties, escapeCsvField]);
 
   const infoPanelHeight =
     "calc(100vh - (var(--header-height) + 18px + var(--legend-height) + 24px + 16px))";

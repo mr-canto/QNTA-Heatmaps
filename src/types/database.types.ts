@@ -30,6 +30,7 @@ export type Database = {
           filename: string;
           record_count: number;
           is_current: boolean;
+          status: "pending" | "processing" | "completed" | "failed";
         };
         Insert: {
           id?: string;
@@ -38,6 +39,7 @@ export type Database = {
           filename: string;
           record_count?: number;
           is_current?: boolean;
+          status?: "pending" | "processing" | "completed" | "failed";
         };
         Update: {
           id?: string;
@@ -46,6 +48,7 @@ export type Database = {
           filename?: string;
           record_count?: number;
           is_current?: boolean;
+          status?: "pending" | "processing" | "completed" | "failed";
         };
         Relationships: [
           {

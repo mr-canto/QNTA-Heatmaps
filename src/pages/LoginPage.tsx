@@ -59,23 +59,31 @@ export default function LoginPage() {
     setIsLoading(true);
     setErrors({});
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (signInError) {
-      // Convert auth errors to user-friendly messages
-      let errorMessage = formatErrorMessage(signInError);
-      if (signInError.message.includes("Invalid login credentials")) {
-        errorMessage = "Incorrect email or password. Please try again.";
-      } else if (signInError.message.includes("Email not confirmed")) {
-        errorMessage = "Please verify your email address before signing in.";
+      if (signInError) {
+        // Convert auth errors to user-friendly messages
+        let errorMessage = formatErrorMessage(signInError);
+        if (signInError.message.includes("Invalid login credentials")) {
+          errorMessage = "Incorrect email or password. Please try again.";
+        } else if (signInError.message.includes("Email not confirmed")) {
+          errorMessage = "Please verify your email address before signing in.";
+        }
+        setErrors({ general: errorMessage });
+      } else if (data.user) {
+        navigate("/dashboard", { replace: true });
       }
-      setErrors({ general: errorMessage });
+    } catch (error) {
+      // Handle unexpected errors (network issues, etc.)
+      const message = error instanceof Error ? error.message : "An unexpected error occurred";
+      setErrors({ general: message });
+    } finally {
+      // Always reset loading state
       setIsLoading(false);
-    } else if (data.user) {
-      navigate("/dashboard", { replace: true });
     }
   };
 

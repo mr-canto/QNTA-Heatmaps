@@ -1,7 +1,9 @@
+import { useMemo } from "react";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { Property } from "@/types/database.types";
+import PropertyPopup from "./PropertyPopup";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 
@@ -13,13 +15,33 @@ interface ClusterLayerProps {
 const TEAL = "#0f5d5e";
 const CORAL = "#d16b55";
 
-// Create a custom divIcon for property markers
-function createPropertyIcon(property: Property): L.DivIcon {
+/**
+ * Icon cache to prevent creating new L.DivIcon instances on every render.
+ * Keys are generated based on visit_count to ensure icons with the same
+ * visual appearance are reused.
+ */
+const propertyIconCache = new Map<string, L.DivIcon>();
+
+/**
+ * Get or create a cached property marker icon.
+ * Icons are cached by visit count since that determines the visual appearance.
+ */
+function getPropertyIcon(property: Property): L.DivIcon {
   const isMultiVisit = property.visit_count > 1;
   const color = isMultiVisit ? CORAL : TEAL;
   const size = Math.min(12 + Math.log2(property.visit_count) * 4, 24);
 
-  return L.divIcon({
+  // Create a cache key based on the visual properties
+  const cacheKey = `${property.visit_count}`;
+
+  // Return cached icon if available
+  const cached = propertyIconCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  // Create new icon and cache it
+  const icon = L.divIcon({
     html: `<div style="
       width: ${size}px;
       height: ${size}px;
@@ -32,11 +54,30 @@ function createPropertyIcon(property: Property): L.DivIcon {
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
+
+  propertyIconCache.set(cacheKey, icon);
+  return icon;
 }
 
-// Custom cluster icon function
+/**
+ * Cache for cluster icons.
+ * Keys are the cluster count since that determines the visual appearance.
+ */
+const clusterIconCache = new Map<number, L.DivIcon>();
+
+/**
+ * Get or create a cached cluster icon.
+ * Icons are cached by count since that determines the visual appearance.
+ */
 function createClusterCustomIcon(cluster: L.MarkerCluster): L.DivIcon {
   const count = cluster.getChildCount();
+
+  // Return cached icon if available
+  const cached = clusterIconCache.get(count);
+  if (cached) {
+    return cached;
+  }
+
   let size = 40;
   let bgColor = "#2f7ab8"; // Small cluster - blue
 
@@ -48,7 +89,7 @@ function createClusterCustomIcon(cluster: L.MarkerCluster): L.DivIcon {
     bgColor = "rgba(15, 93, 94, 0.9)"; // Medium cluster - teal
   }
 
-  return L.divIcon({
+  const icon = L.divIcon({
     html: `<div style="
       width: ${size}px;
       height: ${size}px;
@@ -68,10 +109,28 @@ function createClusterCustomIcon(cluster: L.MarkerCluster): L.DivIcon {
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
+
+  clusterIconCache.set(count, icon);
+  return icon;
 }
 
 export default function ClusterLayer({ properties }: ClusterLayerProps) {
   const map = useMap();
+
+  // Memoize the markers to prevent unnecessary re-renders
+  const markers = useMemo(() => {
+    return properties.map((property) => (
+      <Marker
+        key={property.id}
+        position={[property.lat, property.lon]}
+        icon={getPropertyIcon(property)}
+      >
+        <Popup className="property-popup">
+          <PropertyPopup property={property} onClose={() => map.closePopup()} />
+        </Popup>
+      </Marker>
+    ));
+  }, [properties, map]);
 
   return (
     <MarkerClusterGroup
@@ -82,80 +141,7 @@ export default function ClusterLayer({ properties }: ClusterLayerProps) {
       showCoverageOnHover={false}
       zoomToBoundsOnClick
     >
-      {properties.map((property) => {
-        const isMultiVisit = property.visit_count > 1;
-
-        return (
-          <Marker
-            key={property.id}
-            position={[property.lat, property.lon]}
-            icon={createPropertyIcon(property)}
-          >
-            <Popup className="property-popup">
-              <div
-                className={`icon-popup ${isMultiVisit ? "multiple" : "single"}`}
-              >
-                {/* Banner Header */}
-                <div
-                  className={`popup-banner ${isMultiVisit ? "multiple" : "single"}`}
-                >
-                  <span className="banner-title">Property Details</span>
-                  <span className={`badge-header ${isMultiVisit ? "multiple" : "single"}`}>
-                    <span className="dot"></span>
-                    {isMultiVisit ? "Multiple Visits" : "Single Visit"}
-                  </span>
-                  <button
-                    type="button"
-                    className="popup-close"
-                    onClick={() => map.closePopup()}
-                    aria-label="Close popup"
-                  >
-                    &times;
-                  </button>
-                </div>
-
-                {/* Popup Body */}
-                <div className="popup-body">
-                  {/* Address Section */}
-                  <div className="info-section">
-                    <div
-                      className="info-icon location"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                        <circle cx="12" cy="10" r="3" />
-                      </svg>
-                    </div>
-                    <div className="info-content">
-                      <div className="info-label">Address</div>
-                      <div className="info-value">{property.address}</div>
-                    </div>
-                  </div>
-
-                  {/* Visit Count Section */}
-                  <div className="info-section">
-                    <div
-                      className="info-icon visits"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M18 20V10" />
-                        <path d="M12 20V4" />
-                        <path d="M6 20v-6" />
-                      </svg>
-                    </div>
-                    <div className="info-content">
-                      <div className="info-label">Total Visits</div>
-                      <div className="info-value highlight">
-                        {property.visit_count}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        );
-      })}
+      {markers}
     </MarkerClusterGroup>
   );
 }
