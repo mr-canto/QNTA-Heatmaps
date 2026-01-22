@@ -432,7 +432,7 @@ body {
 }
 
 .icon-popup .info-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: #8996a5;
   text-transform: uppercase;
@@ -442,7 +442,7 @@ body {
 
 .icon-popup .info-value {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: #1f2a37;
   line-height: 1.5;
 }
@@ -490,9 +490,18 @@ body {
 }
 
 .area-name {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
   font-size: 13px;
   font-weight: 600;
   color: #1f2a37;
+}
+
+.area-name-text {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -501,6 +510,7 @@ body {
 .area-outcode {
   color: #627083;
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 .area-count {

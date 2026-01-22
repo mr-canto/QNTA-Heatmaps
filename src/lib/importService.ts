@@ -118,24 +118,26 @@ export async function saveImportToDatabase(
   }
 
   try {
-    // Step 1: Mark previous import as not current
-    const { error: updateError } = await supabase
+    // Step 1: Capture the current import(s) so we can restore on failure
+    const { data: currentImports, error: currentError } = await supabase
       .from("imports")
-      .update({ is_current: false })
+      .select("id")
       .eq("is_current", true);
 
-    if (updateError) {
-      throw new Error(`Failed to update previous import: ${updateError.message}`);
+    if (currentError) {
+      throw new Error(`Failed to read current import: ${currentError.message}`);
     }
 
-    // Step 2: Create new import record
+    const previousCurrentIds = (currentImports || []).map((row) => row.id);
+
+    // Step 2: Create new import record (not current until fully inserted)
     const { data: importData, error: insertError } = await supabase
       .from("imports")
       .insert({
         uploaded_by: userId,
         filename,
         record_count: properties.length,
-        is_current: true,
+        is_current: false,
       })
       .select("id")
       .single();
@@ -186,8 +188,34 @@ export async function saveImportToDatabase(
       .insert(statsInserts);
 
     if (statsError) {
-      // Log but don't fail - stats can be recalculated
-      console.error("Failed to insert outcode stats:", statsError.message);
+      await supabase.from("imports").delete().eq("id", importId);
+      throw new Error(`Failed to insert outcode stats: ${statsError.message}`);
+    }
+
+    // Step 5: Swap current import to the new snapshot
+    if (previousCurrentIds.length > 0) {
+      const { error: clearError } = await supabase
+        .from("imports")
+        .update({ is_current: false })
+        .in("id", previousCurrentIds);
+
+      if (clearError) {
+        await supabase.from("imports").delete().eq("id", importId);
+        throw new Error(`Failed to update previous import: ${clearError.message}`);
+      }
+    }
+
+    const { error: setCurrentError } = await supabase
+      .from("imports")
+      .update({ is_current: true })
+      .eq("id", importId);
+
+    if (setCurrentError) {
+      if (previousCurrentIds.length > 0) {
+        await supabase.from("imports").update({ is_current: true }).in("id", previousCurrentIds);
+      }
+      await supabase.from("imports").delete().eq("id", importId);
+      throw new Error(`Failed to mark import as current: ${setCurrentError.message}`);
     }
 
     return {

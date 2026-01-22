@@ -101,18 +101,210 @@ function isValidPostcode(postcode: string): boolean {
   return UK_POSTCODE_REGEX.test(postcode);
 }
 
-/**
- * Find the address column name (case-insensitive).
- */
-function findAddressColumn(columns: string[]): string | null {
-  return columns.find((col) => col.toLowerCase() === "address") ?? null;
+const ADDRESS_HEADER_SCORES: Record<string, number> = {
+  address: 100,
+  "property address": 92,
+  "full address": 92,
+  "address line 1": 88,
+  "address line1": 88,
+  "address1": 86,
+  location: 82,
+  addr: 80,
+};
+
+const POSTCODE_HEADER_SCORES: Record<string, number> = {
+  postcode: 100,
+  "post code": 98,
+  "postal code": 90,
+  zip: 70,
+  "zip code": 70,
+};
+
+const ADDRESS_KEYWORDS = [
+  "street",
+  "st",
+  "road",
+  "rd",
+  "avenue",
+  "ave",
+  "lane",
+  "ln",
+  "close",
+  "cl",
+  "court",
+  "ct",
+  "house",
+  "flat",
+  "apartment",
+  "apt",
+  "estate",
+  "square",
+  "sq",
+  "crescent",
+  "cres",
+  "terrace",
+  "place",
+  "drive",
+  "dr",
+  "gardens",
+  "gdn",
+  "way",
+  "walk",
+  "row",
+  "mews",
+  "hill",
+  "park",
+  "rise",
+  "view",
+  "village",
+];
+
+const ADDRESS_KEYWORD_REGEX = new RegExp(`\\b(${ADDRESS_KEYWORDS.join("|")})\\b`, "i");
+const MAX_SCAN_ROWS = 200;
+const MIN_ADDRESS_SCORE = 50;
+const MIN_POSTCODE_MATCH_RATIO = 0.6;
+
+interface ColumnCandidate {
+  name: string;
+  score: number;
+}
+
+function normalizeHeader(header: string): string {
+  return header.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+function pickBestHeaderMatch(
+  columns: string[],
+  scores: Record<string, number>
+): ColumnCandidate | null {
+  let best: ColumnCandidate | null = null;
+  for (const column of columns) {
+    const normalized = normalizeHeader(column);
+    const score = scores[normalized];
+    if (!score) continue;
+    if (!best || score > best.score) {
+      best = { name: column, score };
+    }
+  }
+  return best;
+}
+
+function removePostcode(text: string): string {
+  return text.replace(UK_POSTCODE_REGEX, " ");
+}
+
+function hasAddressBody(text: string): boolean {
+  const body = removePostcode(text).replace(/[^a-z0-9]+/gi, " ").trim();
+  if (!body) return false;
+  if (body.length < 4) return false;
+  return /[a-z]/i.test(body);
+}
+
+function hasAddressSignal(text: string): boolean {
+  if (ADDRESS_KEYWORD_REGEX.test(text)) return true;
+  if (/[0-9]/.test(text)) return true;
+  if (/[,-]/.test(text)) return true;
+  return false;
+}
+
+function scoreAddressContent(rows: Record<string, string>[], column: string): number {
+  const sample = rows.slice(0, MAX_SCAN_ROWS);
+  if (sample.length === 0) return 0;
+
+  let nonEmpty = 0;
+  let postcodeHits = 0;
+  let bodyHits = 0;
+  let signalHits = 0;
+
+  for (const row of sample) {
+    const value = row[column];
+    if (!value) continue;
+    const text = value.toString().trim();
+    if (!text) continue;
+    nonEmpty += 1;
+    if (UK_POSTCODE_REGEX.test(text)) {
+      postcodeHits += 1;
+    }
+    if (hasAddressBody(text)) {
+      bodyHits += 1;
+    }
+    if (hasAddressSignal(text)) {
+      signalHits += 1;
+    }
+  }
+
+  if (nonEmpty === 0) return 0;
+
+  const nonEmptyRatio = nonEmpty / sample.length;
+  const postcodeRatio = postcodeHits / nonEmpty;
+  const bodyRatio = bodyHits / nonEmpty;
+  const signalRatio = signalHits / nonEmpty;
+
+  return nonEmptyRatio * 10 + bodyRatio * 40 + signalRatio * 30 + postcodeRatio * 20;
 }
 
 /**
- * Find the postcode column name (case-insensitive).
+ * Find the postcode column name (case-insensitive), with content fallback.
  */
-function findPostcodeColumn(columns: string[]): string | null {
-  return columns.find((col) => col.toLowerCase() === "postcode") ?? null;
+function findPostcodeColumn(
+  columns: string[],
+  rows: Record<string, string>[]
+): ColumnCandidate | null {
+  const headerMatch = pickBestHeaderMatch(columns, POSTCODE_HEADER_SCORES);
+  if (headerMatch) return headerMatch;
+
+  let best: ColumnCandidate | null = null;
+  for (const column of columns) {
+    const sample = rows.slice(0, MAX_SCAN_ROWS);
+    let nonEmpty = 0;
+    let postcodeHits = 0;
+    for (const row of sample) {
+      const value = row[column];
+      if (!value) continue;
+      const text = value.toString().trim();
+      if (!text) continue;
+      nonEmpty += 1;
+      if (UK_POSTCODE_REGEX.test(text)) {
+        postcodeHits += 1;
+      }
+    }
+    if (nonEmpty === 0) continue;
+    const ratio = postcodeHits / nonEmpty;
+    if (ratio < MIN_POSTCODE_MATCH_RATIO) continue;
+    const score = ratio * 100;
+    if (!best || score > best.score) {
+      best = { name: column, score };
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Find the address column name, with header and content detection.
+ */
+function findAddressColumn(
+  columns: string[],
+  rows: Record<string, string>[],
+  postcodeColumn: string | null
+): ColumnCandidate | null {
+  const headerMatch = pickBestHeaderMatch(columns, ADDRESS_HEADER_SCORES);
+  if (headerMatch) return headerMatch;
+
+  let best: ColumnCandidate | null = null;
+  for (const column of columns) {
+    if (postcodeColumn && column === postcodeColumn) continue;
+    const score = scoreAddressContent(rows, column);
+    if (!best || score > best.score) {
+      best = { name: column, score };
+    }
+  }
+
+  if (!best || best.score < MIN_ADDRESS_SCORE) {
+    return null;
+  }
+
+  return best;
 }
 
 /**
@@ -175,35 +367,71 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
       try {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: "array" });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const rawRows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, {
-          defval: "",
-          raw: false,
-        });
+        const sheetNames = workbook.SheetNames;
+        let bestSheetRows: Record<string, string>[] | null = null;
+        let bestAddressColumn: ColumnCandidate | null = null;
+        let bestPostcodeColumn: ColumnCandidate | null = null;
+        let hasAnyRows = false;
 
-        if (rawRows.length === 0) {
-          reject({ type: "parse", message: "File appears to be empty" });
+        for (const sheetName of sheetNames) {
+          const worksheet = workbook.Sheets[sheetName];
+          const rawRows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, {
+            defval: "",
+            raw: false,
+          });
+          if (rawRows.length === 0) {
+            continue;
+          }
+          hasAnyRows = true;
+
+          const columns = Object.keys(rawRows[0]);
+          if (columns.length === 0) {
+            continue;
+          }
+
+          const postcodeColumn = findPostcodeColumn(columns, rawRows);
+          const addressColumn = findAddressColumn(
+            columns,
+            rawRows,
+            postcodeColumn ? postcodeColumn.name : null
+          );
+
+          if (!addressColumn) {
+            continue;
+          }
+
+          if (!bestAddressColumn || addressColumn.score > bestAddressColumn.score) {
+            bestAddressColumn = addressColumn;
+            bestPostcodeColumn = postcodeColumn;
+            bestSheetRows = rawRows;
+          }
+        }
+
+        if (!bestSheetRows || !bestAddressColumn) {
+          if (!hasAnyRows) {
+            reject({ type: "parse", message: "File appears to be empty" });
+            return;
+          }
+          reject({
+            type: "noAddress",
+            message:
+              "We couldn't find a column with full addresses. Please include house/building name or number, street, and a UK postcode.",
+          });
           return;
         }
 
-        const columns = Object.keys(rawRows[0]);
-        const addressColumn = findAddressColumn(columns);
-
-        if (!addressColumn) {
-          reject({ type: "noAddress", message: "No Address column found in file" });
-          return;
-        }
-
-        const postcodeColumn = findPostcodeColumn(columns);
-        const parsedRows = parseRows(rawRows, addressColumn, postcodeColumn);
+        const parsedRows = parseRows(
+          bestSheetRows,
+          bestAddressColumn.name,
+          bestPostcodeColumn ? bestPostcodeColumn.name : null
+        );
         const properties = deduplicateProperties(parsedRows);
 
         resolve({
           properties,
-          totalRows: rawRows.length,
+          totalRows: bestSheetRows.length,
           uniqueAddresses: properties.length,
-          previewRows: rawRows.slice(0, PREVIEW_ROWS),
+          previewRows: bestSheetRows.slice(0, PREVIEW_ROWS),
         });
       } catch {
         reject({ type: "parse", message: "Failed to parse file. Please check the file format." });
@@ -235,15 +463,27 @@ export async function parseCsvFile(file: File): Promise<ParseResult> {
         }
 
         const columns = results.meta.fields || [];
-        const addressColumn = findAddressColumn(columns);
+        const postcodeColumn = findPostcodeColumn(columns, rawRows);
+        const addressColumn = findAddressColumn(
+          columns,
+          rawRows,
+          postcodeColumn ? postcodeColumn.name : null
+        );
 
         if (!addressColumn) {
-          reject({ type: "noAddress", message: "No Address column found in file" });
+          reject({
+            type: "noAddress",
+            message:
+              "We couldn't find a column with full addresses. Please include house/building name or number, street, and a UK postcode.",
+          });
           return;
         }
 
-        const postcodeColumn = findPostcodeColumn(columns);
-        const parsedRows = parseRows(rawRows, addressColumn, postcodeColumn);
+        const parsedRows = parseRows(
+          rawRows,
+          addressColumn.name,
+          postcodeColumn ? postcodeColumn.name : null
+        );
         const properties = deduplicateProperties(parsedRows);
 
         resolve({
@@ -301,7 +541,17 @@ export function validateProperties(
     if (!postcode) {
       excludedProperties.push({
         address: prop.address,
-        reason: "No valid UK postcode found",
+        reason:
+          "Missing a valid UK postcode. Please include a UK postcode in the address or a Postcode column.",
+      });
+      continue;
+    }
+
+    if (!hasAddressBody(prop.address)) {
+      excludedProperties.push({
+        address: prop.address,
+        reason:
+          "Address contains only a postcode. Please include a house/building name or number and street.",
       });
       continue;
     }

@@ -19,29 +19,29 @@ export default function HeatmapStatsHeader({
   }, [properties]);
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-[999] bg-[#0f5d5e] text-white py-2 px-4 max-md:py-2 max-md:px-3">
-      <div className="flex justify-center gap-3 flex-wrap max-md:gap-2.5">
-        <div className="text-center px-3 py-1.5 rounded-[10px] border border-white/15 bg-white/10 min-w-[88px] max-md:flex-1 max-md:min-w-0 max-md:px-2 max-md:py-1.5">
-          <div className="text-lg font-semibold tabular-nums tracking-tight max-lg:text-[17px] max-md:text-base max-sm:text-sm">
+    <div className="text-white">
+      <div className="flex items-center justify-center gap-2.5 flex-nowrap">
+        <div className="text-center px-2.5 py-1 rounded-[10px] border border-white/15 bg-white/10 min-w-[80px]">
+          <div className="text-base font-semibold tabular-nums tracking-tight max-lg:text-[15px] max-md:text-[13px]">
             {isLoading ? "..." : stats.total.toLocaleString()}
           </div>
-          <div className="text-[9px] tracking-[0.14em] uppercase text-white/70 mt-0.5 max-lg:text-[8px] max-md:text-[8px] max-sm:text-[7px] max-sm:tracking-[0.1em]">
+          <div className="text-[9px] tracking-[0.14em] uppercase text-white/70 mt-0.5 max-lg:text-[8px] max-md:text-[7px]">
             Properties
           </div>
         </div>
-        <div className="text-center px-3 py-1.5 rounded-[10px] border border-white/15 bg-white/10 min-w-[88px] max-md:flex-1 max-md:min-w-0 max-md:px-2 max-md:py-1.5">
-          <div className="text-lg font-semibold tabular-nums tracking-tight max-lg:text-[17px] max-md:text-base max-sm:text-sm">
+        <div className="text-center px-2.5 py-1 rounded-[10px] border border-white/15 bg-white/10 min-w-[80px]">
+          <div className="text-base font-semibold tabular-nums tracking-tight max-lg:text-[15px] max-md:text-[13px]">
             {isLoading ? "..." : stats.singleVisit.toLocaleString()}
           </div>
-          <div className="text-[9px] tracking-[0.14em] uppercase text-white/70 mt-0.5 max-lg:text-[8px] max-md:text-[8px] max-sm:text-[7px] max-sm:tracking-[0.1em]">
+          <div className="text-[9px] tracking-[0.14em] uppercase text-white/70 mt-0.5 max-lg:text-[8px] max-md:text-[7px]">
             Single Visit
           </div>
         </div>
-        <div className="text-center px-3 py-1.5 rounded-[10px] border border-white/15 bg-white/10 min-w-[88px] max-md:flex-1 max-md:min-w-0 max-md:px-2 max-md:py-1.5">
-          <div className="text-lg font-semibold tabular-nums tracking-tight max-lg:text-[17px] max-md:text-base max-sm:text-sm">
+        <div className="text-center px-2.5 py-1 rounded-[10px] border border-white/15 bg-white/10 min-w-[80px]">
+          <div className="text-base font-semibold tabular-nums tracking-tight max-lg:text-[15px] max-md:text-[13px]">
             {isLoading ? "..." : stats.multiVisit.toLocaleString()}
           </div>
-          <div className="text-[9px] tracking-[0.14em] uppercase text-white/70 mt-0.5 max-lg:text-[8px] max-md:text-[8px] max-sm:text-[7px] max-sm:tracking-[0.1em]">
+          <div className="text-[9px] tracking-[0.14em] uppercase text-white/70 mt-0.5 max-lg:text-[8px] max-md:text-[7px]">
             Multi Visit
           </div>
         </div>

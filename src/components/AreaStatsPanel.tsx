@@ -17,6 +17,15 @@ export default function AreaStatsPanel({
   isLoading,
   embedded = false,
 }: AreaStatsPanelProps) {
+  const getAreaNameParts = (areaName: string, outcode: string) => {
+    const trailingOutcode = new RegExp(`\\s*,?\\s*${outcode}$`, "i");
+    const strippedName = areaName.replace(trailingOutcode, "").trim();
+    return {
+      name: strippedName,
+      hasName: strippedName.length > 0,
+    };
+  };
+
   // Calculate max visits for relative bar sizing (log scale as per HTML)
   const maxVisits = Math.max(...areas.map((a) => a.totalVisits), 1);
 
@@ -48,6 +57,10 @@ export default function AreaStatsPanel({
           <div className="space-y-2">
             {areas.map((area) => {
               const isSelected = selectedArea === area.outcode;
+              const { name, hasName } = getAreaNameParts(
+                area.areaName,
+                area.outcode
+              );
               const barWidth =
                 (Math.log(area.totalVisits + 1) / Math.log(maxVisits + 1)) * 100;
 
@@ -58,7 +71,9 @@ export default function AreaStatsPanel({
                   className="area-stat"
                 >
                   <span className="area-name">
-                    {area.areaName},{" "}
+                    {hasName && (
+                      <span className="area-name-text">{name},</span>
+                    )}
                     <span className="area-outcode">{area.outcode}</span>
                   </span>
                   <div className="area-count">
@@ -113,6 +128,10 @@ export default function AreaStatsPanel({
               const barWidth =
                 (Math.log(area.totalVisits + 1) / Math.log(maxVisits + 1)) * 100;
               const isSelected = selectedArea === area.outcode;
+              const { name, hasName } = getAreaNameParts(
+                area.areaName,
+                area.outcode
+              );
 
               return (
                 <li
@@ -126,16 +145,18 @@ export default function AreaStatsPanel({
                 >
                   <div className="flex justify-between items-center mb-1.5">
                     <span className="text-sm font-medium text-[#1f2a37] max-lg:text-[12px]">
-                      {area.areaName}
+                      {hasName ? name : area.outcode}
                     </span>
                     <span className="text-sm font-semibold text-[#0f5d5e] tabular-nums max-lg:text-[11px]">
                       {area.totalVisits.toLocaleString()}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-[#8996a5] w-10">
-                      {area.outcode}
-                    </span>
+                  <div className={`flex items-center ${hasName ? "gap-2" : ""}`}>
+                    {hasName && (
+                      <span className="text-[10px] text-[#8996a5] w-10">
+                        {area.outcode}
+                      </span>
+                    )}
                     <div className="flex-1 h-1.5 bg-[#eef2f1] rounded-full overflow-hidden">
                       <div
                         className="h-full bg-[#0f5d5e] rounded-full transition-all"

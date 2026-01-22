@@ -119,7 +119,8 @@ export default function ImportPage() {
         if (validation.validProperties.length === 0) {
           setFileError({
             type: "noValidAddresses",
-            message: "No valid addresses found. All addresses are missing valid UK postcodes.",
+            message:
+              "No valid addresses found. Please include a house/building name or number and street, plus a UK postcode.",
           });
           setSelectedFile(null);
           setIsProcessing(false);
@@ -254,6 +255,9 @@ export default function ImportPage() {
       await queryClient.invalidateQueries({ queryKey: ["properties"] });
       await queryClient.invalidateQueries({ queryKey: ["outcodeStats"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboardStats"] });
+      await queryClient.invalidateQueries({ queryKey: ["topAreas"] });
+      await queryClient.invalidateQueries({ queryKey: ["multiVisitHotspot"] });
+      await queryClient.invalidateQueries({ queryKey: ["biggestIncrease"] });
 
       // Show success state
       setImportSuccess({
@@ -623,13 +627,21 @@ export default function ImportPage() {
             ) : imports.length === 0 ? (
               <div className="p-6 text-center text-[#627083]">No imports yet</div>
             ) : (
-              <Table>
+              <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow className="bg-[#f7f9fb]">
-                    <TableHead className="font-medium text-[#627083]">Date</TableHead>
-                    <TableHead className="font-medium text-[#627083]">Filename</TableHead>
-                    <TableHead className="font-medium text-[#627083] text-right">Records</TableHead>
-                    <TableHead className="font-medium text-[#627083]">Status</TableHead>
+                    <TableHead className="px-6 py-3 text-xs font-semibold tracking-[0.12em] uppercase text-[#627083] w-[210px]">
+                      Date
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-xs font-semibold tracking-[0.12em] uppercase text-[#627083]">
+                      Filename
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-xs font-semibold tracking-[0.12em] uppercase text-[#627083] w-[120px]">
+                      Records
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-xs font-semibold tracking-[0.12em] uppercase text-[#627083] w-[140px]">
+                      Status
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -638,7 +650,7 @@ export default function ImportPage() {
                       key={imp.id}
                       className={imp.is_current ? "bg-[#d9eceb]/30" : ""}
                     >
-                      <TableCell className="text-[#1f2a37]">
+                      <TableCell className="px-6 py-3 text-[#1f2a37] tabular-nums">
                         {new Date(imp.uploaded_at).toLocaleDateString("en-GB", {
                           day: "numeric",
                           month: "short",
@@ -647,13 +659,13 @@ export default function ImportPage() {
                           minute: "2-digit",
                         })}
                       </TableCell>
-                      <TableCell className="text-[#1f2a37] max-w-[200px] truncate">
+                      <TableCell className="px-6 py-3 text-[#1f2a37] truncate">
                         {imp.filename}
                       </TableCell>
-                      <TableCell className="text-[#1f2a37] text-right tabular-nums">
+                      <TableCell className="px-6 py-3 text-[#1f2a37] tabular-nums">
                         {imp.record_count.toLocaleString()}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-6 py-3">
                         {imp.is_current ? (
                           <Badge className="bg-[#0f5d5e] hover:bg-[#0b4d4f] text-white">
                             Current

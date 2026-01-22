@@ -1,5 +1,4 @@
 import { MapContainer, TileLayer, ZoomControl } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
 import { useProperties, type PropertyFilters } from "@/hooks/useProperties";
 import { useOutcodeStats } from "@/hooks/useOutcodeStats";
 import { useImports } from "@/hooks/useImports";
@@ -10,6 +9,7 @@ import ClusterLayer from "@/components/ClusterLayer";
 import MapController from "@/components/MapController";
 import AreaStatsPanel from "@/components/AreaStatsPanel";
 import HeatmapStatsHeader from "@/components/HeatmapStatsHeader";
+import { useHeaderExtras } from "@/context/HeaderExtrasContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -27,11 +27,14 @@ import type { Property } from "@/types/database.types";
 // Southwark centre coordinates
 const SOUTHWARK_CENTER: [number, number] = [51.47, -0.065];
 const DEFAULT_ZOOM = 13;
+const EMPTY_PROPERTIES: Property[] = [];
 
 type ViewMode = "heatmap" | "markers" | "clusters";
 type VisitType = "all" | "single" | "multi";
 
 export default function HeatmapPage() {
+  const { setExtras } = useHeaderExtras();
+
   // State for view mode
   const [viewMode, setViewMode] = useState<ViewMode>("heatmap");
 
@@ -155,7 +158,7 @@ export default function HeatmapPage() {
 
   // Fetch properties based on filters
   const propertiesQuery = useProperties(filters);
-  const properties = propertiesQuery.data ?? [];
+  const properties = propertiesQuery.data ?? EMPTY_PROPERTIES;
   const isLoading = propertiesQuery.isLoading;
 
   // Error handlers with retry functionality
@@ -177,6 +180,18 @@ export default function HeatmapPage() {
     refetch: importsQuery.refetch,
     context: "import snapshots",
   });
+
+  const statsHeader = useMemo(
+    () => <HeatmapStatsHeader properties={properties} isLoading={isLoading} />,
+    [properties, isLoading]
+  );
+
+  useEffect(() => {
+    setExtras(statsHeader);
+    return () => {
+      setExtras(null);
+    };
+  }, [setExtras, statsHeader]);
 
   // Get the coordinates for the selected area (for zooming)
   const selectedAreaCoords = useMemo(() => {
@@ -230,7 +245,10 @@ export default function HeatmapPage() {
     : { height: infoPanelHeight, maxHeight: infoPanelHeight };
 
   return (
-    <div className="h-[calc(100vh-72px)] w-full relative">
+    <div
+      className="w-full relative"
+      style={{ height: "calc(100vh - var(--header-height, 72px))" }}
+    >
       {/* Historical Data Banner */}
       {selectedImport && (
         <div className="absolute top-0 left-0 right-0 z-[1001] bg-amber-500 text-white py-2 px-4 text-center text-sm font-medium">
@@ -243,9 +261,6 @@ export default function HeatmapPage() {
           })}
         </div>
       )}
-
-      {/* Statistics Header - responsive */}
-      <HeatmapStatsHeader properties={properties} isLoading={isLoading} />
 
       {/* Mobile Toggle Buttons - only visible on mobile (<768px) */}
       <button
@@ -304,13 +319,15 @@ export default function HeatmapPage() {
           <X className="w-4 h-4 stroke-[#627083]" />
         </button>
 
-        <div className="text-[11px] font-bold text-[#627083] uppercase tracking-[0.14em] mb-[18px]">
+        <div className="text-[11px] font-bold text-[#627083] uppercase tracking-[0.14em] mb-0">
           Control Panel
         </div>
 
+        <div className="border-t border-[#dce3e7] mt-2.5 mb-3.5" />
+
         {/* Snapshot Selector */}
-        <div className="mb-[18px]">
-          <div className="flex items-center gap-3">
+        <div className="mb-2">
+          <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold text-[#627083] uppercase tracking-[0.14em]">
               Snapshot
             </span>
@@ -320,7 +337,7 @@ export default function HeatmapPage() {
                 setSelectedImportId(value === "current" ? null : value)
               }
             >
-              <SelectTrigger className="ml-auto w-[160px] text-[12px] border-[#dce3e7] bg-[#eef2f1] rounded-[10px] max-md:py-3 max-md:text-[13px]">
+              <SelectTrigger className="ml-auto w-[140px] text-[12px] border-[#dce3e7] bg-[#eef2f1] rounded-[10px] max-md:py-3 max-md:text-[13px]">
                 <SelectValue placeholder="Select snapshot" />
               </SelectTrigger>
               <SelectContent>
@@ -341,7 +358,7 @@ export default function HeatmapPage() {
           </div>
         </div>
 
-        <div className="border-t border-[#dce3e7] my-[18px]" />
+        <div className="border-t border-[#dce3e7] mt-2 mb-[18px]" />
 
         {/* View Mode Toggle */}
         <div className="mb-[18px]">
@@ -506,7 +523,7 @@ export default function HeatmapPage() {
         style={infoPanelStyle}
         className={`info-panel fixed z-[1002] bg-white border border-[#dce3e7] shadow-[0_20px_45px_rgba(15,23,42,0.16)] backdrop-blur-md transition-transform duration-300 ease-out overflow-hidden flex flex-col
           md:top-[calc(72px+18px)] md:right-6 md:w-[280px] md:rounded-[14px] md:p-4 md:translate-x-0
-          max-lg:w-[240px] max-lg:right-4 max-lg:p-3.5
+          max-lg:right-4 max-lg:p-3.5
           max-md:top-0 max-md:right-0 max-md:w-[280px] max-md:max-w-[85vw] max-md:h-screen max-md:max-h-screen max-md:rounded-none max-md:pt-[72px] max-md:px-4 max-md:pb-5
           max-sm:w-full max-sm:max-w-full
           ${isMobile ? (infoPanelOpen ? "translate-x-0" : "translate-x-full") : ""}`}
