@@ -22,7 +22,7 @@ import {
   SelectSeparator,
   SelectTrigger,
 } from "@/components/ui/select";
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, useDeferredValue } from "react";
 import { Search, X, Download, History, SlidersHorizontal, BarChart3 } from "lucide-react";
 import type { Property } from "@/types/database.types";
 
@@ -51,6 +51,7 @@ export default function HeatmapPage() {
 
   // State for search
   const [searchTerm, setSearchTerm] = useState("");
+  const deferredSearchTerm = useDeferredValue(searchTerm);
 
   // State for selected import (null means current)
   const [selectedImportId, setSelectedImportId] = useState<string | null>(null);
@@ -191,9 +192,9 @@ export default function HeatmapPage() {
       outcode: effectiveSelectedArea,
       visitType: visitType,
       minVisits: minVisits,
-      searchTerm: searchTerm,
+      searchTerm: deferredSearchTerm,
     }),
-    [selectedImportId, effectiveSelectedArea, visitType, minVisits, searchTerm]
+    [selectedImportId, effectiveSelectedArea, visitType, minVisits, deferredSearchTerm]
   );
 
   // Fetch properties based on filters
@@ -235,11 +236,11 @@ export default function HeatmapPage() {
 
   // Get the coordinates for the selected area (for zooming)
   const selectedAreaCoords = useMemo(() => {
-    if (!selectedArea) return null;
-    const area = outcodeStats.find((a) => a.outcode === selectedArea);
+    if (!effectiveSelectedArea) return null;
+    const area = outcodeStats.find((a) => a.outcode === effectiveSelectedArea);
     if (!area) return null;
     return [area.lat, area.lon] as [number, number];
-  }, [selectedArea, outcodeStats]);
+  }, [effectiveSelectedArea, outcodeStats]);
 
   /**
    * Sanitize a value for CSV export to prevent formula injection attacks.
