@@ -4,18 +4,26 @@ import { logger } from "./logger";
 
 export interface ParsedRow {
   address: string;
+  addressKey: string;
   postcode: string | null;
   rawRow: Record<string, string>;
+  workOrderRefRaw: string | null;
+  descriptionRaw: string | null;
+  estimatedCostRaw: string | null;
+  rawDateValue: string | null;
+  importRowOrder: number;
 }
 
 export interface DeduplicatedProperty {
   address: string;
+  addressKey: string;
   postcode: string | null;
   visitCount: number;
 }
 
 export interface ValidatedProperty {
   address: string;
+  addressKey: string;
   postcode: string;
   outcode: string;
   visitCount: number;
@@ -23,6 +31,7 @@ export interface ValidatedProperty {
 
 export interface GeocodedProperty {
   address: string;
+  addressKey: string;
   postcode: string;
   outcode: string;
   lat: number;
@@ -45,8 +54,41 @@ export interface ValidationResult {
   excludedProperties: ExcludedProperty[];
 }
 
+export type ImportWarningField =
+  | "workOrderRef"
+  | "description"
+  | "estimatedCost"
+  | "date";
+
+export interface ImportWarning {
+  address: string;
+  importRowOrder: number;
+  field: ImportWarningField;
+  message: string;
+  rawValue?: string | null;
+}
+
+export interface ImportableWorkOrder {
+  address: string;
+  addressKey: string;
+  postcode: string;
+  outcode: string;
+  workOrderRef: string | null;
+  description: string | null;
+  estimatedCost: number | null;
+  rawDateValue: string | null;
+  normalizedDate: string | null;
+  importRowOrder: number;
+}
+
+export interface PreparedWorkOrdersResult {
+  workOrders: ImportableWorkOrder[];
+  warnings: ImportWarning[];
+}
+
 export interface ParseResult {
   properties: DeduplicatedProperty[];
+  parsedRows: ParsedRow[];
   totalRows: number;
   uniqueAddresses: number;
   previewRows: Record<string, string>[];
@@ -66,49 +108,13 @@ const PREVIEW_ROWS = 100;
  */
 const UK_POSTCODE_REGEX = /([A-Z]{1,2}[0-9][0-9A-Z]?)\s*([0-9][A-Z]{2})/i;
 
-/**
- * Normalize address for deduplication comparison.
- * Trims whitespace and collapses multiple spaces.
- */
-function normalizeAddress(address: string): string {
-  return address.trim().replace(/\s+/g, " ");
-}
-
-/**
- * Extract UK postcode from text using regex.
- * Returns null if no valid postcode found.
- */
-function extractPostcode(text: string): string | null {
-  const match = text.match(UK_POSTCODE_REGEX);
-  if (!match) return null;
-
-  // Format as "OUTCODE INCODE" with proper spacing
-  return `${match[1].toUpperCase()} ${match[2].toUpperCase()}`;
-}
-
-/**
- * Extract outcode from a full postcode.
- * The outcode is the first part (e.g., "SE15" from "SE15 2JZ").
- */
-function extractOutcode(postcode: string): string {
-  const parts = postcode.trim().split(/\s+/);
-  return parts[0].toUpperCase();
-}
-
-/**
- * Validate a postcode by checking it matches the UK format.
- */
-function isValidPostcode(postcode: string): boolean {
-  return UK_POSTCODE_REGEX.test(postcode);
-}
-
 const ADDRESS_HEADER_SCORES: Record<string, number> = {
   address: 100,
   "property address": 92,
   "full address": 92,
   "address line 1": 88,
   "address line1": 88,
-  "address1": 86,
+  address1: 86,
   location: 82,
   addr: 80,
 };
@@ -119,6 +125,37 @@ const POSTCODE_HEADER_SCORES: Record<string, number> = {
   "postal code": 90,
   zip: 70,
   "zip code": 70,
+};
+
+const WORK_ORDER_HEADER_SCORES: Record<string, number> = {
+  "wo ref": 100,
+  "work order number": 100,
+  "work order ref": 98,
+  "wo number": 96,
+  "wo reference": 96,
+  "work order": 92,
+};
+
+const DESCRIPTION_HEADER_SCORES: Record<string, number> = {
+  description: 100,
+  "job description": 96,
+  details: 90,
+  job: 70,
+};
+
+const ESTIMATED_COST_HEADER_SCORES: Record<string, number> = {
+  "est cost": 100,
+  "estimated cost": 100,
+  "est. cost": 98,
+  cost: 70,
+};
+
+const DATE_HEADER_SCORES: Record<string, number> = {
+  date: 100,
+  "job date": 96,
+  "work order date": 96,
+  "raised date": 92,
+  "visit date": 92,
 };
 
 const ADDRESS_KEYWORDS = [
@@ -170,24 +207,45 @@ interface ColumnCandidate {
   score: number;
 }
 
+interface SheetColumns {
+  address: string;
+  postcode: string | null;
+  workOrderRef: string | null;
+  description: string | null;
+  estimatedCost: string | null;
+  date: string | null;
+}
+
+function normalizeAddress(address: string): string {
+  return address.trim().replace(/\s+/g, " ");
+}
+
+function normalizeAddressKey(address: string): string {
+  return normalizeAddress(address).toLowerCase();
+}
+
 function normalizeHeader(header: string): string {
   return header.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
 }
 
-function pickBestHeaderMatch(
-  columns: string[],
-  scores: Record<string, number>
-): ColumnCandidate | null {
-  let best: ColumnCandidate | null = null;
-  for (const column of columns) {
-    const normalized = normalizeHeader(column);
-    const score = scores[normalized];
-    if (!score) continue;
-    if (!best || score > best.score) {
-      best = { name: column, score };
-    }
-  }
-  return best;
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.trim().replace(/\s+/g, " ");
+  return normalized || null;
+}
+
+function extractPostcode(text: string): string | null {
+  const match = text.match(UK_POSTCODE_REGEX);
+  if (!match) return null;
+  return `${match[1].toUpperCase()} ${match[2].toUpperCase()}`;
+}
+
+function extractOutcode(postcode: string): string {
+  return postcode.trim().split(/\s+/)[0].toUpperCase();
+}
+
+function isValidPostcode(postcode: string): boolean {
+  return UK_POSTCODE_REGEX.test(postcode);
 }
 
 function removePostcode(text: string): string {
@@ -208,6 +266,21 @@ function hasAddressSignal(text: string): boolean {
   return false;
 }
 
+function pickBestHeaderMatch(
+  columns: string[],
+  scores: Record<string, number>
+): ColumnCandidate | null {
+  let best: ColumnCandidate | null = null;
+  for (const column of columns) {
+    const score = scores[normalizeHeader(column)];
+    if (!score) continue;
+    if (!best || score > best.score) {
+      best = { name: column, score };
+    }
+  }
+  return best;
+}
+
 function scoreAddressContent(rows: Record<string, string>[], column: string): number {
   const sample = rows.slice(0, MAX_SCAN_ROWS);
   if (sample.length === 0) return 0;
@@ -218,20 +291,12 @@ function scoreAddressContent(rows: Record<string, string>[], column: string): nu
   let signalHits = 0;
 
   for (const row of sample) {
-    const value = row[column];
-    if (!value) continue;
-    const text = value.toString().trim();
+    const text = row[column]?.toString().trim();
     if (!text) continue;
     nonEmpty += 1;
-    if (UK_POSTCODE_REGEX.test(text)) {
-      postcodeHits += 1;
-    }
-    if (hasAddressBody(text)) {
-      bodyHits += 1;
-    }
-    if (hasAddressSignal(text)) {
-      signalHits += 1;
-    }
+    if (UK_POSTCODE_REGEX.test(text)) postcodeHits += 1;
+    if (hasAddressBody(text)) bodyHits += 1;
+    if (hasAddressSignal(text)) signalHits += 1;
   }
 
   if (nonEmpty === 0) return 0;
@@ -244,9 +309,6 @@ function scoreAddressContent(rows: Record<string, string>[], column: string): nu
   return nonEmptyRatio * 10 + bodyRatio * 40 + signalRatio * 30 + postcodeRatio * 20;
 }
 
-/**
- * Find the postcode column name (case-insensitive), with content fallback.
- */
 function findPostcodeColumn(
   columns: string[],
   rows: Record<string, string>[]
@@ -255,23 +317,24 @@ function findPostcodeColumn(
   if (headerMatch) return headerMatch;
 
   let best: ColumnCandidate | null = null;
+  const sample = rows.slice(0, MAX_SCAN_ROWS);
+
   for (const column of columns) {
-    const sample = rows.slice(0, MAX_SCAN_ROWS);
     let nonEmpty = 0;
     let postcodeHits = 0;
+
     for (const row of sample) {
-      const value = row[column];
-      if (!value) continue;
-      const text = value.toString().trim();
+      const text = row[column]?.toString().trim();
       if (!text) continue;
       nonEmpty += 1;
-      if (UK_POSTCODE_REGEX.test(text)) {
-        postcodeHits += 1;
-      }
+      if (UK_POSTCODE_REGEX.test(text)) postcodeHits += 1;
     }
+
     if (nonEmpty === 0) continue;
+
     const ratio = postcodeHits / nonEmpty;
     if (ratio < MIN_POSTCODE_MATCH_RATIO) continue;
+
     const score = ratio * 100;
     if (!best || score > best.score) {
       best = { name: column, score };
@@ -281,9 +344,6 @@ function findPostcodeColumn(
   return best;
 }
 
-/**
- * Find the address column name, with header and content detection.
- */
 function findAddressColumn(
   columns: string[],
   rows: Record<string, string>[],
@@ -301,155 +361,171 @@ function findAddressColumn(
     }
   }
 
-  if (!best || best.score < MIN_ADDRESS_SCORE) {
-    return null;
-  }
-
+  if (!best || best.score < MIN_ADDRESS_SCORE) return null;
   return best;
 }
 
-/**
- * Parse raw rows into ParsedRow array with address and postcode fields.
- */
-function parseRows(
-  rows: Record<string, string>[],
-  addressColumn: string,
-  postcodeColumn: string | null
-): ParsedRow[] {
-  return rows.map((row) => ({
-    address: normalizeAddress(row[addressColumn] || ""),
-    postcode: postcodeColumn ? (row[postcodeColumn]?.trim() || null) : null,
-    rawRow: row,
-  }));
+function findOptionalColumn(
+  columns: string[],
+  scores: Record<string, number>
+): string | null {
+  return pickBestHeaderMatch(columns, scores)?.name ?? null;
 }
 
-/**
- * Deduplicate properties by address, counting occurrences as visit count.
- * For postcode, use the first non-null value encountered for each address.
- */
+function buildSheetColumns(columns: string[], rows: Record<string, string>[]): SheetColumns | null {
+  const postcodeColumn = findPostcodeColumn(columns, rows);
+  const addressColumn = findAddressColumn(columns, rows, postcodeColumn?.name ?? null);
+
+  if (!addressColumn) return null;
+
+  return {
+    address: addressColumn.name,
+    postcode: postcodeColumn?.name ?? null,
+    workOrderRef: findOptionalColumn(columns, WORK_ORDER_HEADER_SCORES),
+    description: findOptionalColumn(columns, DESCRIPTION_HEADER_SCORES),
+    estimatedCost: findOptionalColumn(columns, ESTIMATED_COST_HEADER_SCORES),
+    date: findOptionalColumn(columns, DATE_HEADER_SCORES),
+  };
+}
+
+function parseRows(rows: Record<string, string>[], columns: SheetColumns): ParsedRow[] {
+  return rows.map((row, index) => {
+    const address = normalizeAddress(row[columns.address] || "");
+
+    return {
+      address,
+      addressKey: normalizeAddressKey(address),
+      postcode: columns.postcode ? normalizeOptionalText(row[columns.postcode]) : null,
+      rawRow: row,
+      workOrderRefRaw: columns.workOrderRef
+        ? normalizeOptionalText(row[columns.workOrderRef])
+        : null,
+      descriptionRaw: columns.description
+        ? normalizeOptionalText(row[columns.description])
+        : null,
+      estimatedCostRaw: columns.estimatedCost
+        ? normalizeOptionalText(row[columns.estimatedCost])
+        : null,
+      rawDateValue: columns.date ? normalizeOptionalText(row[columns.date]) : null,
+      importRowOrder: index,
+    };
+  });
+}
+
 function deduplicateProperties(rows: ParsedRow[]): DeduplicatedProperty[] {
-  const propertyMap = new Map<
-    string,
-    { address: string; postcode: string | null; visitCount: number }
-  >();
+  const propertyMap = new Map<string, DeduplicatedProperty>();
 
   for (const row of rows) {
     if (!row.address) continue;
 
-    const key = row.address.toLowerCase();
-    const existing = propertyMap.get(key);
-
+    const existing = propertyMap.get(row.addressKey);
     if (existing) {
-      existing.visitCount++;
-      // Use postcode from later row if earlier was null
+      existing.visitCount += 1;
       if (!existing.postcode && row.postcode) {
         existing.postcode = row.postcode;
       }
-    } else {
-      propertyMap.set(key, {
-        address: row.address,
-        postcode: row.postcode,
-        visitCount: 1,
-      });
+      continue;
     }
+
+    propertyMap.set(row.addressKey, {
+      address: row.address,
+      addressKey: row.addressKey,
+      postcode: row.postcode,
+      visitCount: 1,
+    });
   }
 
   return Array.from(propertyMap.values());
 }
 
-/**
- * Parse an Excel file and return deduplicated properties.
- */
+function parseExcelWorkbook(data: ArrayBuffer): ParseResult {
+  const workbook = XLSX.read(data, { type: "array" });
+  let bestSheetRows: Record<string, string>[] | null = null;
+  let bestSheetColumns: SheetColumns | null = null;
+  let bestAddressScore = -1;
+  let hasAnyRows = false;
+
+  for (const sheetName of workbook.SheetNames) {
+    const worksheet = workbook.Sheets[sheetName];
+    const rawRows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, {
+      defval: "",
+      raw: false,
+    });
+
+    if (rawRows.length === 0) continue;
+    hasAnyRows = true;
+
+    const columns = Object.keys(rawRows[0]);
+    if (columns.length === 0) continue;
+
+    const sheetColumns = buildSheetColumns(columns, rawRows);
+    if (!sheetColumns) continue;
+
+    const addressScore = pickBestHeaderMatch([sheetColumns.address], ADDRESS_HEADER_SCORES)?.score
+      ?? scoreAddressContent(rawRows, sheetColumns.address);
+
+    if (addressScore > bestAddressScore) {
+      bestSheetRows = rawRows;
+      bestSheetColumns = sheetColumns;
+      bestAddressScore = addressScore;
+    }
+  }
+
+  if (!bestSheetRows || !bestSheetColumns) {
+    if (!hasAnyRows) {
+      throw { type: "parse", message: "File appears to be empty" } satisfies ParseError;
+    }
+
+    throw {
+      type: "noAddress",
+      message:
+        "We couldn't find a column with full addresses. Please include house/building name or number, street, and a UK postcode.",
+    } satisfies ParseError;
+  }
+
+  const parsedRows = parseRows(bestSheetRows, bestSheetColumns);
+  const properties = deduplicateProperties(parsedRows);
+
+  return {
+    properties,
+    parsedRows,
+    totalRows: bestSheetRows.length,
+    uniqueAddresses: properties.length,
+    previewRows: bestSheetRows.slice(0, PREVIEW_ROWS),
+  };
+}
+
 export async function parseExcelFile(file: File): Promise<ParseResult> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onload = (e) => {
+    reader.onload = (event) => {
       try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheetNames = workbook.SheetNames;
-        let bestSheetRows: Record<string, string>[] | null = null;
-        let bestAddressColumn: ColumnCandidate | null = null;
-        let bestPostcodeColumn: ColumnCandidate | null = null;
-        let hasAnyRows = false;
-
-        for (const sheetName of sheetNames) {
-          const worksheet = workbook.Sheets[sheetName];
-          const rawRows = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, {
-            defval: "",
-            raw: false,
-          });
-          if (rawRows.length === 0) {
-            continue;
-          }
-          hasAnyRows = true;
-
-          const columns = Object.keys(rawRows[0]);
-          if (columns.length === 0) {
-            continue;
-          }
-
-          const postcodeColumn = findPostcodeColumn(columns, rawRows);
-          const addressColumn = findAddressColumn(
-            columns,
-            rawRows,
-            postcodeColumn ? postcodeColumn.name : null
-          );
-
-          if (!addressColumn) {
-            continue;
-          }
-
-          if (!bestAddressColumn || addressColumn.score > bestAddressColumn.score) {
-            bestAddressColumn = addressColumn;
-            bestPostcodeColumn = postcodeColumn;
-            bestSheetRows = rawRows;
-          }
-        }
-
-        if (!bestSheetRows || !bestAddressColumn) {
-          if (!hasAnyRows) {
-            reject({ type: "parse", message: "File appears to be empty" });
-            return;
-          }
-          reject({
-            type: "noAddress",
-            message:
-              "We couldn't find a column with full addresses. Please include house/building name or number, street, and a UK postcode.",
-          });
+        const data = event.target?.result;
+        if (!(data instanceof ArrayBuffer)) {
+          reject({ type: "parse", message: "Failed to read file" } satisfies ParseError);
           return;
         }
 
-        const parsedRows = parseRows(
-          bestSheetRows,
-          bestAddressColumn.name,
-          bestPostcodeColumn ? bestPostcodeColumn.name : null
+        resolve(parseExcelWorkbook(data));
+      } catch (error) {
+        reject(
+          (error as ParseError) ?? {
+            type: "parse",
+            message: "Failed to parse file. Please check the file format.",
+          }
         );
-        const properties = deduplicateProperties(parsedRows);
-
-        resolve({
-          properties,
-          totalRows: bestSheetRows.length,
-          uniqueAddresses: properties.length,
-          previewRows: bestSheetRows.slice(0, PREVIEW_ROWS),
-        });
-      } catch {
-        reject({ type: "parse", message: "Failed to parse file. Please check the file format." });
       }
     };
 
     reader.onerror = () => {
-      reject({ type: "parse", message: "Failed to read file" });
+      reject({ type: "parse", message: "Failed to read file" } satisfies ParseError);
     };
 
     reader.readAsArrayBuffer(file);
   });
 }
 
-/**
- * Parse a CSV file and return deduplicated properties.
- */
 export async function parseCsvFile(file: File): Promise<ParseResult> {
   return new Promise((resolve, reject) => {
     Papa.parse<Record<string, string>>(file, {
@@ -457,80 +533,53 @@ export async function parseCsvFile(file: File): Promise<ParseResult> {
       skipEmptyLines: true,
       complete: (results) => {
         const rawRows = results.data;
-
         if (rawRows.length === 0) {
-          reject({ type: "parse", message: "File appears to be empty" });
+          reject({ type: "parse", message: "File appears to be empty" } satisfies ParseError);
           return;
         }
 
         const columns = results.meta.fields || [];
-        const postcodeColumn = findPostcodeColumn(columns, rawRows);
-        const addressColumn = findAddressColumn(
-          columns,
-          rawRows,
-          postcodeColumn ? postcodeColumn.name : null
-        );
+        const sheetColumns = buildSheetColumns(columns, rawRows);
 
-        if (!addressColumn) {
+        if (!sheetColumns) {
           reject({
             type: "noAddress",
             message:
               "We couldn't find a column with full addresses. Please include house/building name or number, street, and a UK postcode.",
-          });
+          } satisfies ParseError);
           return;
         }
 
-        const parsedRows = parseRows(
-          rawRows,
-          addressColumn.name,
-          postcodeColumn ? postcodeColumn.name : null
-        );
+        const parsedRows = parseRows(rawRows, sheetColumns);
         const properties = deduplicateProperties(parsedRows);
 
         resolve({
           properties,
+          parsedRows,
           totalRows: rawRows.length,
           uniqueAddresses: properties.length,
           previewRows: rawRows.slice(0, PREVIEW_ROWS),
         });
       },
       error: () => {
-        reject({ type: "parse", message: "Failed to parse CSV file" });
+        reject({ type: "parse", message: "Failed to parse CSV file" } satisfies ParseError);
       },
     });
   });
 }
 
-/**
- * Parse a file (Excel or CSV) based on extension.
- */
 export async function parseFile(file: File): Promise<ParseResult> {
   const extension = file.name.split(".").pop()?.toLowerCase();
-
-  if (extension === "csv") {
-    return parseCsvFile(file);
-  } else {
-    return parseExcelFile(file);
-  }
+  return extension === "csv" ? parseCsvFile(file) : parseExcelFile(file);
 }
 
-/**
- * Validate and extract postcodes from deduplicated properties.
- * - First attempts to extract postcode from address field
- * - Falls back to postcode column if extraction fails
- * - Properties without valid postcodes are excluded
- */
-export function validateProperties(
-  properties: DeduplicatedProperty[]
-): ValidationResult {
+export function validateProperties(properties: DeduplicatedProperty[]): ValidationResult {
   const validProperties: ValidatedProperty[] = [];
   const excludedProperties: ExcludedProperty[] = [];
 
   for (const prop of properties) {
-    // Try to extract postcode from address first
     let postcode = extractPostcode(prop.address);
 
-    // Fall back to postcode column if address extraction failed
     if (!postcode && prop.postcode) {
       const validatedColumnPostcode = extractPostcode(prop.postcode);
       if (validatedColumnPostcode) {
@@ -538,7 +587,6 @@ export function validateProperties(
       }
     }
 
-    // If still no valid postcode, exclude the property
     if (!postcode) {
       excludedProperties.push({
         address: prop.address,
@@ -557,7 +605,6 @@ export function validateProperties(
       continue;
     }
 
-    // Validate the extracted postcode
     if (!isValidPostcode(postcode)) {
       excludedProperties.push({
         address: prop.address,
@@ -566,18 +613,205 @@ export function validateProperties(
       continue;
     }
 
-    // Extract outcode and add to valid properties
-    const outcode = extractOutcode(postcode);
-
     validProperties.push({
       address: prop.address,
+      addressKey: prop.addressKey,
       postcode,
-      outcode,
+      outcode: extractOutcode(postcode),
       visitCount: prop.visitCount,
     });
   }
 
   return { validProperties, excludedProperties };
+}
+
+function formatIsoDate(year: number, month: number, day: number): string | null {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return null;
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function parseExcelDateSerial(value: string): string | null {
+  if (!/^\d+(\.\d+)?$/.test(value)) return null;
+
+  const serial = Number(value);
+  if (!Number.isFinite(serial) || serial <= 0) return null;
+
+  const parsed = XLSX.SSF.parse_date_code(serial);
+  if (!parsed?.y || !parsed.m || !parsed.d) return null;
+
+  return formatIsoDate(parsed.y, parsed.m, parsed.d);
+}
+
+function parseUkDateParts(dayText: string, monthText: string, yearText: string): string | null {
+  const day = Number(dayText);
+  const month = Number(monthText);
+  let year = Number(yearText);
+
+  if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) {
+    return null;
+  }
+
+  if (yearText.length === 2) {
+    year += year >= 70 ? 1900 : 2000;
+  }
+
+  return formatIsoDate(year, month, day);
+}
+
+function normalizeDateValue(rawValue: string | null): string | null {
+  const value = normalizeOptionalText(rawValue);
+  if (!value) return null;
+
+  const excelSerial = parseExcelDateSerial(value);
+  if (excelSerial) return excelSerial;
+
+  const isoMatch = value.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (isoMatch) {
+    return formatIsoDate(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
+  }
+
+  const ukNumericMatch = value.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})$/);
+  if (ukNumericMatch) {
+    return parseUkDateParts(ukNumericMatch[1], ukNumericMatch[2], ukNumericMatch[3]);
+  }
+
+  const monthNames: Record<string, number> = {
+    jan: 1,
+    january: 1,
+    feb: 2,
+    february: 2,
+    mar: 3,
+    march: 3,
+    apr: 4,
+    april: 4,
+    may: 5,
+    jun: 6,
+    june: 6,
+    jul: 7,
+    july: 7,
+    aug: 8,
+    august: 8,
+    sep: 9,
+    sept: 9,
+    september: 9,
+    oct: 10,
+    october: 10,
+    nov: 11,
+    november: 11,
+    dec: 12,
+    december: 12,
+  };
+
+  const textualMatch = value.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{2}|\d{4})$/);
+  if (textualMatch) {
+    const month = monthNames[textualMatch[2].toLowerCase()];
+    if (!month) return null;
+    return parseUkDateParts(textualMatch[1], String(month), textualMatch[3]);
+  }
+
+  return null;
+}
+
+function normalizeEstimatedCost(rawValue: string | null): number | null {
+  const value = normalizeOptionalText(rawValue);
+  if (!value) return null;
+
+  const cleaned = value.replace(/[^0-9.-]+/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
+    return null;
+  }
+
+  const numericValue = Number(cleaned);
+  if (!Number.isFinite(numericValue)) return null;
+
+  return Math.round(numericValue * 100) / 100;
+}
+
+export function prepareWorkOrders(
+  parsedRows: ParsedRow[],
+  geocodedProperties: GeocodedProperty[]
+): PreparedWorkOrdersResult {
+  const propertyMap = new Map(
+    geocodedProperties.map((property) => [property.addressKey, property] as const)
+  );
+
+  const workOrders: ImportableWorkOrder[] = [];
+  const warnings: ImportWarning[] = [];
+
+  for (const row of parsedRows) {
+    const property = propertyMap.get(row.addressKey);
+    if (!property) continue;
+
+    const workOrderRef = normalizeOptionalText(row.workOrderRefRaw);
+    const description = normalizeOptionalText(row.descriptionRaw);
+    const estimatedCost = normalizeEstimatedCost(row.estimatedCostRaw);
+    const normalizedDate = normalizeDateValue(row.rawDateValue);
+
+    if (!workOrderRef) {
+      warnings.push({
+        address: row.address,
+        importRowOrder: row.importRowOrder,
+        field: "workOrderRef",
+        message: "Work order reference is missing.",
+      });
+    }
+
+    if (!description) {
+      warnings.push({
+        address: row.address,
+        importRowOrder: row.importRowOrder,
+        field: "description",
+        message: "Description is blank.",
+      });
+    }
+
+    if (row.estimatedCostRaw && estimatedCost === null) {
+      warnings.push({
+        address: row.address,
+        importRowOrder: row.importRowOrder,
+        field: "estimatedCost",
+        message: "Estimated cost could not be parsed.",
+        rawValue: row.estimatedCostRaw,
+      });
+    }
+
+    if (row.rawDateValue && normalizedDate === null) {
+      warnings.push({
+        address: row.address,
+        importRowOrder: row.importRowOrder,
+        field: "date",
+        message: "Date could not be parsed.",
+        rawValue: row.rawDateValue,
+      });
+    }
+
+    workOrders.push({
+      address: property.address,
+      addressKey: property.addressKey,
+      postcode: property.postcode,
+      outcode: property.outcode,
+      workOrderRef,
+      description,
+      estimatedCost,
+      rawDateValue: row.rawDateValue,
+      normalizedDate,
+      importRowOrder: row.importRowOrder,
+    });
+  }
+
+  return { workOrders, warnings };
 }
 
 /**
@@ -595,9 +829,6 @@ const MAX_RETRY_ATTEMPTS = 3;
  */
 const BASE_RETRY_DELAY_MS = 1000;
 
-/**
- * Postcodes.io bulk lookup response structure.
- */
 interface PostcodesIoResult {
   query: string;
   result: {
@@ -613,33 +844,16 @@ interface PostcodesIoResponse {
   result: PostcodesIoResult[];
 }
 
-/**
- * Sleep for a specified number of milliseconds.
- */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Calculate exponential backoff delay with jitter.
- * @param attempt - The current attempt number (0-based)
- * @returns Delay in milliseconds
- */
 function calculateBackoffDelay(attempt: number): number {
-  // Exponential backoff: 1s, 2s, 4s, etc.
   const exponentialDelay = BASE_RETRY_DELAY_MS * Math.pow(2, attempt);
-
-  // Add jitter (0-25% of the delay) to prevent thundering herd
   const jitter = Math.random() * 0.25 * exponentialDelay;
-
   return exponentialDelay + jitter;
 }
 
-/**
- * Fetch postcodes with retry logic and exponential backoff.
- * @param batch - Array of postcodes to geocode
- * @returns PostcodesIoResponse or null if all retries failed
- */
 async function fetchPostcodesWithRetry(
   batch: string[]
 ): Promise<PostcodesIoResponse | null> {
@@ -659,7 +873,6 @@ async function fetchPostcodesWithRetry(
         return await response.json();
       }
 
-      // Handle rate limiting (429) specially - always retry with longer delay
       if (response.status === 429) {
         logger.warn("Postcodes.io rate limit hit, backing off", {
           attempt: attempt + 1,
@@ -667,13 +880,11 @@ async function fetchPostcodesWithRetry(
         });
 
         if (attempt < MAX_RETRY_ATTEMPTS - 1) {
-          // Double the delay for rate limiting
           await sleep(calculateBackoffDelay(attempt) * 2);
           continue;
         }
       }
 
-      // Server errors (5xx) are retryable
       if (response.status >= 500 && attempt < MAX_RETRY_ATTEMPTS - 1) {
         logger.warn("Postcodes.io server error, retrying", {
           status: response.status,
@@ -684,7 +895,6 @@ async function fetchPostcodesWithRetry(
         continue;
       }
 
-      // Client errors (4xx except 429) are not retryable
       logger.error("Postcodes.io API error", {
         status: response.status,
         batchSize: batch.length,
@@ -693,7 +903,6 @@ async function fetchPostcodesWithRetry(
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
 
-      // Network errors are retryable
       if (attempt < MAX_RETRY_ATTEMPTS - 1) {
         logger.warn("Geocoding request failed, retrying", {
           error: lastError.message,
@@ -714,30 +923,23 @@ async function fetchPostcodesWithRetry(
   return null;
 }
 
-/**
- * Geocode an array of postcodes using Postcodes.io bulk lookup API.
- * Returns a map of postcode -> {lat, lon} for successful lookups.
- * Implements retry logic with exponential backoff for resilience.
- */
 async function geocodePostcodes(
   postcodes: string[]
 ): Promise<Map<string, { lat: number; lon: number }>> {
   const results = new Map<string, { lat: number; lon: number }>();
 
-  // Process in batches of 100 (Postcodes.io limit)
   for (let i = 0; i < postcodes.length; i += GEOCODING_BATCH_SIZE) {
     const batch = postcodes.slice(i, i + GEOCODING_BATCH_SIZE);
-
     const data = await fetchPostcodesWithRetry(batch);
 
     if (data) {
       for (const item of data.result) {
-        if (item.result) {
-          results.set(item.query.toUpperCase().replace(/\s+/g, " "), {
-            lat: item.result.latitude,
-            lon: item.result.longitude,
-          });
-        }
+        if (!item.result) continue;
+
+        results.set(item.query.toUpperCase().replace(/\s+/g, " "), {
+          lat: item.result.latitude,
+          lon: item.result.longitude,
+        });
       }
     }
   }
@@ -745,65 +947,50 @@ async function geocodePostcodes(
   return results;
 }
 
-/**
- * Geocode validated properties using Postcodes.io API.
- * Properties that fail geocoding are excluded.
- *
- * @param properties - Validated properties with postcodes
- * @param onProgress - Optional callback for progress updates (0-100)
- * @returns Geocoded properties and excluded properties
- */
 export async function geocodeProperties(
   properties: ValidatedProperty[],
   onProgress?: (progress: number) => void
 ): Promise<GeocodingResult> {
   const geocodedProperties: GeocodedProperty[] = [];
   const excludedProperties: ExcludedProperty[] = [];
-
-  // Get unique postcodes to minimize API calls
-  const uniquePostcodes = [...new Set(properties.map((p) => p.postcode))];
+  const uniquePostcodes = [...new Set(properties.map((property) => property.postcode))];
 
   if (uniquePostcodes.length === 0) {
     return { geocodedProperties: [], excludedProperties: [] };
   }
 
-  // Report initial progress
   onProgress?.(0);
-
-  // Geocode all unique postcodes
   const geocodeMap = await geocodePostcodes(uniquePostcodes);
 
-  // Check if geocoding service was completely unavailable
   if (geocodeMap.size === 0 && uniquePostcodes.length > 0) {
     throw new Error("Geocoding service unavailable. Please try again later.");
   }
 
-  // Report progress after geocoding
   onProgress?.(80);
 
-  // Match geocoded results to properties
-  for (const prop of properties) {
-    const normalizedPostcode = prop.postcode.toUpperCase().replace(/\s+/g, " ");
+  for (const property of properties) {
+    const normalizedPostcode = property.postcode.toUpperCase().replace(/\s+/g, " ");
     const coords = geocodeMap.get(normalizedPostcode);
 
-    if (coords) {
-      geocodedProperties.push({
-        address: prop.address,
-        postcode: prop.postcode,
-        outcode: prop.outcode,
-        lat: coords.lat,
-        lon: coords.lon,
-        visitCount: prop.visitCount,
-      });
-    } else {
+    if (!coords) {
       excludedProperties.push({
-        address: prop.address,
-        reason: `Geocoding failed for postcode: ${prop.postcode}`,
+        address: property.address,
+        reason: `Geocoding failed for postcode: ${property.postcode}`,
       });
+      continue;
     }
+
+    geocodedProperties.push({
+      address: property.address,
+      addressKey: property.addressKey,
+      postcode: property.postcode,
+      outcode: property.outcode,
+      lat: coords.lat,
+      lon: coords.lon,
+      visitCount: property.visitCount,
+    });
   }
 
-  // Report completion
   onProgress?.(100);
 
   return { geocodedProperties, excludedProperties };

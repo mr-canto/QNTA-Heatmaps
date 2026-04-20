@@ -15,6 +15,8 @@ interface FormErrors {
   general?: string;
 }
 
+const SIGN_IN_TIMEOUT_MS = 15000;
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -60,10 +62,21 @@ export default function LoginPage() {
     setErrors({});
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      const signInPromise = supabase.auth.signInWithPassword({
         email,
         password,
       });
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        window.setTimeout(() => {
+          reject(new Error("The sign-in service took too long to respond."));
+        }, SIGN_IN_TIMEOUT_MS);
+      });
+
+      const { data, error: signInError } = await Promise.race([
+        signInPromise,
+        timeoutPromise,
+      ]);
 
       if (signInError) {
         // Convert auth errors to user-friendly messages
@@ -76,11 +89,13 @@ export default function LoginPage() {
         setErrors({ general: errorMessage });
       } else if (data.user) {
         navigate("/dashboard", { replace: true });
+      } else {
+        setErrors({
+          general: "Sign-in did not complete. Please try again.",
+        });
       }
     } catch (error) {
-      // Handle unexpected errors (network issues, etc.)
-      const message = error instanceof Error ? error.message : "An unexpected error occurred";
-      setErrors({ general: message });
+      setErrors({ general: formatErrorMessage(error) });
     } finally {
       // Always reset loading state
       setIsLoading(false);
@@ -113,6 +128,7 @@ export default function LoginPage() {
                   setEmail(e.target.value);
                   clearFieldError("email");
                 }}
+                autoComplete="email"
                 disabled={isLoading}
                 className={errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
               />
@@ -134,6 +150,7 @@ export default function LoginPage() {
                   setPassword(e.target.value);
                   clearFieldError("password");
                 }}
+                autoComplete="current-password"
                 disabled={isLoading}
                 className={errors.password ? "border-red-500 focus-visible:ring-red-500" : ""}
               />

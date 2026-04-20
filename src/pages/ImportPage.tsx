@@ -29,11 +29,13 @@ import {
   parseFile,
   validateProperties,
   geocodeProperties,
+  prepareWorkOrders,
   type ParseResult,
   type ParseError,
   type ValidationResult,
   type GeocodingResult,
   type ExcludedProperty,
+  type ImportWarning,
 } from "@/lib/importProcessor";
 import { saveImportToDatabase } from "@/lib/importService";
 import { useAuth } from "@/hooks/useAuth";
@@ -46,7 +48,9 @@ interface FileError {
 
 interface ImportSuccess {
   propertiesImported: number;
+  workOrdersImported: number;
   excludedCount: number;
+  warningCount: number;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -68,8 +72,10 @@ export default function ImportPage() {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [importProgress, setImportProgress] = useState(0);
   const [showExcluded, setShowExcluded] = useState(false);
+  const [showWarnings, setShowWarnings] = useState(false);
   const [importSuccess, setImportSuccess] = useState<ImportSuccess | null>(null);
   const [allExcluded, setAllExcluded] = useState<ExcludedProperty[]>([]);
+  const [importWarnings, setImportWarnings] = useState<ImportWarning[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateFileSize = useCallback((file: File): FileError | null => {
@@ -91,8 +97,10 @@ export default function ImportPage() {
       setParseResult(null);
       setValidationResult(null);
       setShowExcluded(false);
+      setShowWarnings(false);
       setImportSuccess(null);
       setAllExcluded([]);
+      setImportWarnings([]);
       setSelectedFile(file);
       setIsProcessing(true);
       setProcessingProgress(10);
@@ -180,15 +188,17 @@ export default function ImportPage() {
     setValidationResult(null);
     setFileError(null);
     setShowExcluded(false);
+    setShowWarnings(false);
     setImportSuccess(null);
     setAllExcluded([]);
+    setImportWarnings([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   }, []);
 
   const handleConfirm = useCallback(async () => {
-    if (!validationResult || !selectedFile || !user) return;
+    if (!validationResult || !parseResult || !selectedFile || !user) return;
 
     setIsImporting(true);
     setImportProgress(0);
@@ -232,10 +242,17 @@ export default function ImportPage() {
         return;
       }
 
+      const preparedWorkOrders = prepareWorkOrders(
+        parseResult.parsedRows,
+        geocodingResult.geocodedProperties
+      );
+      setImportWarnings(preparedWorkOrders.warnings);
+
       // Step 2: Save to database (60-100% progress)
       setImportProgress(65);
       const importResult = await saveImportToDatabase(
         geocodingResult.geocodedProperties,
+        preparedWorkOrders.workOrders,
         selectedFile.name,
         user.id
       );
@@ -262,12 +279,14 @@ export default function ImportPage() {
       // Show success state
       setImportSuccess({
         propertiesImported: importResult.propertiesImported,
+        workOrdersImported: importResult.workOrdersImported,
         excludedCount: combinedExcluded.length,
+        warningCount: preparedWorkOrders.warnings.length,
       });
 
       // Show success toast
       toast.success("Import completed", {
-        description: `Successfully imported ${importResult.propertiesImported.toLocaleString()} properties.`,
+        description: `Successfully imported ${importResult.propertiesImported.toLocaleString()} properties and ${importResult.workOrdersImported.toLocaleString()} work orders.`,
       });
 
       // Clear file state but keep success message
@@ -281,7 +300,7 @@ export default function ImportPage() {
       setIsImporting(false);
       setImportProgress(0);
     }
-  }, [validationResult, selectedFile, user, queryClient]);
+  }, [validationResult, parseResult, selectedFile, user, queryClient]);
 
   // Summary stats
   const stats = useMemo(() => {
@@ -314,6 +333,12 @@ export default function ImportPage() {
                   </p>
                   <p className="text-sm text-green-700">
                     {importSuccess.propertiesImported.toLocaleString()} properties imported
+                    {importSuccess.workOrdersImported > 0 && (
+                      <>, {importSuccess.workOrdersImported.toLocaleString()} work orders stored</>
+                    )}
+                    {importSuccess.warningCount > 0 && (
+                      <>, {importSuccess.warningCount.toLocaleString()} warnings</>
+                    )}
                     {importSuccess.excludedCount > 0 && (
                       <>, {importSuccess.excludedCount.toLocaleString()} excluded</>
                     )}
@@ -604,6 +629,69 @@ export default function ImportPage() {
                             </td>
                             <td className="px-4 py-2 text-amber-700">
                               {prop.reason}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {importSuccess && importWarnings.length > 0 && (
+              <div className="mt-4">
+                <button
+                  onClick={() => setShowWarnings(!showWarnings)}
+                  className="w-full flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg text-left"
+                >
+                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-800">
+                      {importWarnings.length.toLocaleString()} work-order warning
+                      {importWarnings.length === 1 ? "" : "s"}
+                    </p>
+                    <p className="text-sm text-blue-700">
+                      Imported rows with missing or unparseable optional fields
+                    </p>
+                  </div>
+                  {showWarnings ? (
+                    <ChevronUp className="w-5 h-5 text-blue-600" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-blue-600" />
+                  )}
+                </button>
+
+                {showWarnings && (
+                  <div className="mt-2 border border-blue-200 rounded-lg overflow-hidden max-h-[220px] overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-blue-50 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-medium text-blue-800 border-b border-blue-200">
+                            Address
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-blue-800 border-b border-blue-200">
+                            Field
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium text-blue-800 border-b border-blue-200">
+                            Message
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importWarnings.map((warning, idx) => (
+                          <tr
+                            key={`${warning.address}-${warning.field}-${warning.importRowOrder}-${idx}`}
+                            className="border-b border-blue-100 last:border-0"
+                          >
+                            <td className="px-4 py-2 text-blue-900 max-w-[220px] truncate">
+                              {warning.address}
+                            </td>
+                            <td className="px-4 py-2 text-blue-700 capitalize">
+                              {warning.field}
+                            </td>
+                            <td className="px-4 py-2 text-blue-700">
+                              {warning.message}
                             </td>
                           </tr>
                         ))}

@@ -1,21 +1,57 @@
+import { useMemo, useState } from "react";
 import type { Property } from "@/types/database.types";
+import { usePropertyWorkOrders } from "@/hooks/usePropertyWorkOrders";
 
 interface PropertyPopupProps {
   property: Property;
   onClose: () => void;
 }
 
-/**
- * Shared popup component for displaying property details on the map.
- * Used by both MarkerLayer and ClusterLayer components to maintain
- * consistent popup appearance and behavior.
- */
+const INITIAL_HISTORY_COUNT = 3;
+
+function formatDisplayDate(value: string | null): string | null {
+  if (!value) return null;
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 export default function PropertyPopup({ property, onClose }: PropertyPopupProps) {
   const isMultiVisit = property.visit_count > 1;
+  const [expandedPropertyId, setExpandedPropertyId] = useState<string | null>(null);
+  const { data: workOrders = [], isLoading } = usePropertyWorkOrders(property.id);
+  const showAllHistory = expandedPropertyId === property.id;
+
+  const latestWorkOrderRef = useMemo(
+    () => workOrders.find((workOrder) => workOrder.work_order_ref)?.work_order_ref ?? null,
+    [workOrders]
+  );
+
+  const totalEstimatedCost = useMemo(() => {
+    const total = workOrders.reduce((sum, workOrder) => sum + (workOrder.estimated_cost ?? 0), 0);
+    return total > 0 ? total : null;
+  }, [workOrders]);
+
+  const historyItems = showAllHistory ? workOrders : workOrders.slice(0, INITIAL_HISTORY_COUNT);
+  const hasMoreHistory = workOrders.length > INITIAL_HISTORY_COUNT;
 
   return (
     <div className={`icon-popup ${isMultiVisit ? "multiple" : "single"}`}>
-      {/* Banner Header */}
       <div className={`popup-banner ${isMultiVisit ? "multiple" : "single"}`}>
         <span className="banner-title">Property Details</span>
         <span className={`badge-header ${isMultiVisit ? "multiple" : "single"}`}>
@@ -32,36 +68,97 @@ export default function PropertyPopup({ property, onClose }: PropertyPopupProps)
         </button>
       </div>
 
-      {/* Popup Body */}
-      <div className="popup-body">
-        {/* Address Section */}
-        <div className="info-section">
-          <div className="info-icon location">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
+      <div className="popup-body popup-body-detailed">
+        <section className="popup-address-block">
+          <div className="info-label">Address</div>
+          <div className="popup-address-value">{property.address}</div>
+          <div className="popup-address-meta">
+            {[property.outcode, property.postcode].filter(Boolean).join(" / ")}
           </div>
-          <div className="info-content">
-            <div className="info-label">Address</div>
-            <div className="info-value">{property.address}</div>
-          </div>
-        </div>
+        </section>
 
-        {/* Visit Count Section */}
-        <div className="info-section">
-          <div className="info-icon visits">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M18 20V10" />
-              <path d="M12 20V4" />
-              <path d="M6 20v-6" />
-            </svg>
+        <section className="popup-summary-grid" aria-label="Property summary">
+          <div className="popup-summary-card">
+            <span className="info-label">Total visits</span>
+            <span className="popup-summary-value highlight">{property.visit_count}</span>
           </div>
-          <div className="info-content">
-            <div className="info-label">Total Visits</div>
-            <div className="info-value highlight">{property.visit_count}</div>
+
+          {latestWorkOrderRef && (
+            <div className="popup-summary-card">
+              <span className="info-label">Latest work order</span>
+              <span className="popup-summary-value">{latestWorkOrderRef}</span>
+            </div>
+          )}
+
+          {totalEstimatedCost !== null && (
+            <div className="popup-summary-card">
+              <span className="info-label">Est. total cost</span>
+              <span className="popup-summary-value">{formatCurrency(totalEstimatedCost)}</span>
+            </div>
+          )}
+        </section>
+
+        <section className="popup-history-section">
+          <div className="popup-history-header">
+            <div className="info-label">Work Order History</div>
           </div>
-        </div>
+
+          {isLoading ? (
+            <div className="popup-empty-state">Loading work order history...</div>
+          ) : historyItems.length === 0 ? (
+            <div className="popup-empty-state">No work order history available for this property yet.</div>
+          ) : (
+            <>
+              <div className="popup-history-list">
+                {historyItems.map((workOrder) => {
+                  const displayDate = formatDisplayDate(workOrder.normalized_date);
+
+                  return (
+                    <article
+                      key={workOrder.id}
+                      className="popup-history-card"
+                      aria-label="Work order history item"
+                    >
+                      <div className="popup-history-meta">
+                        {displayDate ? (
+                          <span className="popup-history-date">{displayDate}</span>
+                        ) : (
+                          <span className="popup-history-date muted">Date unavailable</span>
+                        )}
+
+                        <span className="popup-history-ref">
+                          {workOrder.work_order_ref ?? "Reference unavailable"}
+                        </span>
+                      </div>
+
+                      <p className="popup-history-description">
+                        {workOrder.description ?? "No description recorded"}
+                      </p>
+
+                      {workOrder.estimated_cost !== null && (
+                        <div className="popup-history-cost">
+                          Est. cost {formatCurrency(workOrder.estimated_cost)}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+
+              {hasMoreHistory && (
+                <button
+                  type="button"
+                  className="popup-history-toggle"
+                  onClick={() =>
+                    setExpandedPropertyId((current) => (current === property.id ? null : property.id))
+                  }
+                >
+                  {showAllHistory ? "Show fewer entries" : "Show older history"}
+                </button>
+              )}
+            </>
+          )}
+        </section>
       </div>
     </div>
   );

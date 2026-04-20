@@ -145,6 +145,66 @@ export type Database = {
           }
         ];
       };
+      work_orders: {
+        Row: {
+          id: string;
+          import_id: string;
+          property_id: string;
+          address: string;
+          postcode: string;
+          outcode: string;
+          work_order_ref: string | null;
+          description: string | null;
+          estimated_cost: number | null;
+          raw_date_value: string | null;
+          normalized_date: string | null;
+          import_row_order: number;
+        };
+        Insert: {
+          id?: string;
+          import_id: string;
+          property_id: string;
+          address: string;
+          postcode: string;
+          outcode: string;
+          work_order_ref?: string | null;
+          description?: string | null;
+          estimated_cost?: number | null;
+          raw_date_value?: string | null;
+          normalized_date?: string | null;
+          import_row_order: number;
+        };
+        Update: {
+          id?: string;
+          import_id?: string;
+          property_id?: string;
+          address?: string;
+          postcode?: string;
+          outcode?: string;
+          work_order_ref?: string | null;
+          description?: string | null;
+          estimated_cost?: number | null;
+          raw_date_value?: string | null;
+          normalized_date?: string | null;
+          import_row_order?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "work_orders_import_id_fkey";
+            columns: ["import_id"];
+            isOneToOne: false;
+            referencedRelation: "imports";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_orders_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: {
       [_ in never]: never;

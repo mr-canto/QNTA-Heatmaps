@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { logger } from "./logger";
-import type { GeocodedProperty } from "./importProcessor";
+import type { GeocodedProperty, ImportableWorkOrder } from "./importProcessor";
 
 /**
  * Import status values for tracking import lifecycle.
@@ -93,7 +93,17 @@ export interface ImportResult {
   success: boolean;
   importId?: string;
   propertiesImported: number;
+  workOrdersImported: number;
   error?: string;
+}
+
+interface InsertedPropertyRow {
+  id: string;
+  address: string;
+}
+
+function normalizeAddressKey(address: string): string {
+  return address.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 /**
@@ -167,6 +177,7 @@ async function cleanupFailedImport(
  */
 export async function saveImportToDatabase(
   properties: GeocodedProperty[],
+  workOrders: ImportableWorkOrder[],
   filename: string,
   userId: string
 ): Promise<ImportResult> {
@@ -174,6 +185,7 @@ export async function saveImportToDatabase(
     return {
       success: false,
       propertiesImported: 0,
+      workOrdersImported: 0,
       error: "No properties to import",
     };
   }
@@ -220,8 +232,9 @@ export async function saveImportToDatabase(
     // Step 3: Update status to 'processing'
     await updateImportStatus(currentImportId, "processing");
 
-    // Step 4: Insert properties in batches
+    // Step 4: Insert properties in batches and retain their IDs for work-order linking
     const BATCH_SIZE = 500;
+    const insertedProperties: InsertedPropertyRow[] = [];
     for (let i = 0; i < properties.length; i += BATCH_SIZE) {
       const batch = properties.slice(i, i + BATCH_SIZE).map((prop) => ({
         import_id: currentImportId,
@@ -233,7 +246,10 @@ export async function saveImportToDatabase(
         visit_count: prop.visitCount,
       }));
 
-      const { error: batchError } = await supabase.from("properties").insert(batch);
+      const { data: batchData, error: batchError } = await supabase
+        .from("properties")
+        .insert(batch)
+        .select("id, address");
 
       if (batchError) {
         logger.error("Failed to insert property batch", {
@@ -244,9 +260,51 @@ export async function saveImportToDatabase(
         });
         throw new Error(`Failed to insert properties: ${batchError.message}`);
       }
+
+      insertedProperties.push(...(batchData ?? []));
     }
 
-    // Step 5: Calculate and insert outcode statistics
+    // Step 5: Insert work orders linked to inserted properties
+    const propertyIdByAddressKey = new Map(
+      insertedProperties.map((property) => [normalizeAddressKey(property.address), property.id] as const)
+    );
+
+    for (let i = 0; i < workOrders.length; i += BATCH_SIZE) {
+      const batch = workOrders.slice(i, i + BATCH_SIZE).map((workOrder) => {
+        const propertyId = propertyIdByAddressKey.get(workOrder.addressKey);
+        if (!propertyId) {
+          throw new Error(`Failed to link work order to property: ${workOrder.address}`);
+        }
+
+        return {
+          import_id: currentImportId,
+          property_id: propertyId,
+          address: workOrder.address,
+          postcode: workOrder.postcode,
+          outcode: workOrder.outcode.toUpperCase(),
+          work_order_ref: workOrder.workOrderRef,
+          description: workOrder.description,
+          estimated_cost: workOrder.estimatedCost,
+          raw_date_value: workOrder.rawDateValue,
+          normalized_date: workOrder.normalizedDate,
+          import_row_order: workOrder.importRowOrder,
+        };
+      });
+
+      const { error: workOrderError } = await supabase.from("work_orders").insert(batch);
+
+      if (workOrderError) {
+        logger.error("Failed to insert work order batch", {
+          importId: currentImportId,
+          batchStart: i,
+          batchSize: batch.length,
+          error: workOrderError.message,
+        });
+        throw new Error(`Failed to insert work orders: ${workOrderError.message}`);
+      }
+    }
+
+    // Step 6: Calculate and insert outcode statistics
     const outcodeStats = calculateOutcodeStats(properties);
     const statsInserts = outcodeStats.map((stat) => ({
       import_id: currentImportId,
@@ -268,7 +326,7 @@ export async function saveImportToDatabase(
       throw new Error(`Failed to insert outcode stats: ${statsError.message}`);
     }
 
-    // Step 6: Swap current import to the new snapshot
+    // Step 7: Swap current import to the new snapshot
     if (previousCurrentIds.length > 0) {
       const { error: clearError } = await supabase
         .from("imports")
@@ -284,7 +342,7 @@ export async function saveImportToDatabase(
       }
     }
 
-    // Step 7: Mark new import as current and completed
+    // Step 8: Mark new import as current and completed
     const { error: finalizeError } = await supabase
       .from("imports")
       .update({ is_current: true, status: "completed" })
@@ -301,6 +359,7 @@ export async function saveImportToDatabase(
       success: true,
       importId: currentImportId,
       propertiesImported: properties.length,
+      workOrdersImported: workOrders.length,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error occurred";
@@ -314,6 +373,7 @@ export async function saveImportToDatabase(
     return {
       success: false,
       propertiesImported: 0,
+      workOrdersImported: 0,
       error: message,
     };
   }
