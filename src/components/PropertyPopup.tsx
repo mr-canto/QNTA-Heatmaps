@@ -101,63 +101,31 @@ export default function PropertyPopup({ property, onClose }: PropertyPopupProps)
       </div>
 
       <div className="popup-body popup-body-detailed">
-        <section className="info-section popup-address-section">
-          <div className="info-icon location">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-          </div>
-          <div className="info-content">
-            <div className="info-label">Address</div>
-            <div className="info-value popup-address-value">{property.address}</div>
+        <section className="popup-address-block">
+          <div className="info-label">Address</div>
+          <div className="popup-address-value">{property.address}</div>
+          <div className="popup-address-meta">
+            {[property.outcode, property.postcode].filter(Boolean).join(" / ")}
           </div>
         </section>
 
-        <section className="popup-summary-stack" aria-label="Property summary">
-          <div className="info-section popup-summary-card">
-            <div className="info-icon visits">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M18 20V10" />
-                <path d="M12 20V4" />
-                <path d="M6 20v-6" />
-              </svg>
-            </div>
-            <div className="info-content">
-              <div className="info-label">Total visits</div>
-              <div className="info-value highlight">{property.visit_count}</div>
-            </div>
+        <section className="popup-summary-grid" aria-label="Property summary">
+          <div className="popup-summary-card">
+            <span className="info-label">Total visits</span>
+            <span className="popup-summary-value highlight">{property.visit_count}</span>
           </div>
 
           {latestWorkOrderRef && (
-            <div className="info-section popup-summary-card">
-              <div className="info-icon work-order">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M8 7h8" />
-                  <path d="M8 12h8" />
-                  <path d="M8 17h5" />
-                  <path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
-                </svg>
-              </div>
-              <div className="info-content">
-                <div className="info-label">Latest work order</div>
-                <div className="info-value popup-summary-value">{latestWorkOrderRef}</div>
-              </div>
+            <div className="popup-summary-card">
+              <span className="info-label">Latest work order</span>
+              <span className="popup-summary-value">{latestWorkOrderRef}</span>
             </div>
           )}
 
           {totalEstimatedCost !== null && (
-            <div className="info-section popup-summary-card">
-              <div className="info-icon cost">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 4v16" />
-                  <path d="M16 7.5c0-1.933-1.79-3.5-4-3.5S8 5.567 8 7.5 9.79 11 12 11s4 1.567 4 3.5S14.21 18 12 18s-4-1.567-4-3.5" />
-                </svg>
-              </div>
-              <div className="info-content">
-                <div className="info-label">Est. total cost</div>
-                <div className="info-value popup-summary-value">{formatCurrency(totalEstimatedCost)}</div>
-              </div>
+            <div className="popup-summary-card">
+              <span className="info-label">Est. total cost</span>
+              <span className="popup-summary-value">{formatCurrency(totalEstimatedCost)}</span>
             </div>
           )}
         </section>
