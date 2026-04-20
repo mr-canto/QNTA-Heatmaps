@@ -36,6 +36,7 @@ type VisitType = "all" | "single" | "multi";
 
 export default function HeatmapPage() {
   const { setExtras } = useHeaderExtras();
+  const previousViewportModeRef = useRef<"mobile" | "tablet" | "desktop">("desktop");
 
   // State for view mode
   const [viewMode, setViewMode] = useState<ViewMode>("heatmap");
@@ -59,19 +60,47 @@ export default function HeatmapPage() {
   // Mobile panel state
   const [controlsPanelOpen, setControlsPanelOpen] = useState(false);
   const [infoPanelOpen, setInfoPanelOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [viewportMode, setViewportMode] = useState<"mobile" | "tablet" | "desktop">("desktop");
   const areaStatsRef = useRef<HTMLDivElement | null>(null);
   const areaScrollLipRef = useRef<HTMLDivElement | null>(null);
   const legendRef = useRef<HTMLDivElement | null>(null);
+  const historicalBannerRef = useRef<HTMLDivElement | null>(null);
+  const tabletStatsRef = useRef<HTMLDivElement | null>(null);
+  const isMobile = viewportMode === "mobile";
+  const isTablet = viewportMode === "tablet";
+  const usesCompactPanels = isMobile || isTablet;
 
-  // Check for mobile viewport
+  // Check viewport mode
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+    const checkViewportMode = () => {
+      let nextMode: "mobile" | "tablet" | "desktop" = "desktop";
+
+      if (window.innerWidth < 768) {
+        nextMode = "mobile";
+      } else if (window.innerWidth < 1180) {
+        nextMode = "tablet";
+      }
+
+      setViewportMode(nextMode);
+
+      if (previousViewportModeRef.current === nextMode) {
+        return;
+      }
+
+      if (nextMode === "tablet") {
+        setControlsPanelOpen(true);
+        setInfoPanelOpen(false);
+      } else {
+        setControlsPanelOpen(false);
+        setInfoPanelOpen(false);
+      }
+
+      previousViewportModeRef.current = nextMode;
     };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
+
+    checkViewportMode();
+    window.addEventListener("resize", checkViewportMode);
+    return () => window.removeEventListener("resize", checkViewportMode);
   }, []);
 
   // Close panels when clicking outside on mobile
@@ -85,8 +114,17 @@ export default function HeatmapPage() {
     const setLayoutMetrics = () => {
       const header = document.querySelector("header");
       const legend = legendRef.current;
+      const historicalBanner = historicalBannerRef.current;
+      const tabletStats = tabletStatsRef.current;
       const headerHeight = header ? header.getBoundingClientRect().height : 72;
       const legendHeight = legend ? legend.getBoundingClientRect().height : 0;
+      const historicalBannerHeight = historicalBanner
+        ? historicalBanner.getBoundingClientRect().height
+        : 0;
+      const tabletStatsHeight =
+        isTablet && tabletStats ? tabletStats.getBoundingClientRect().height : 0;
+      const topOverlayHeight =
+        historicalBannerHeight + (isTablet ? tabletStatsHeight + 12 : 0);
 
       document.documentElement.style.setProperty(
         "--header-height",
@@ -95,6 +133,18 @@ export default function HeatmapPage() {
       document.documentElement.style.setProperty(
         "--legend-height",
         `${legendHeight}px`
+      );
+      document.documentElement.style.setProperty(
+        "--historical-banner-height",
+        `${historicalBannerHeight}px`
+      );
+      document.documentElement.style.setProperty(
+        "--tablet-stats-height",
+        `${tabletStatsHeight}px`
+      );
+      document.documentElement.style.setProperty(
+        "--map-top-overlay-height",
+        `${topOverlayHeight}px`
       );
     };
 
@@ -106,7 +156,7 @@ export default function HeatmapPage() {
       window.removeEventListener("resize", setLayoutMetrics);
       cancelAnimationFrame(raf);
     };
-  }, []);
+  }, [isTablet, viewportMode, selectedImportId]);
 
   // Fetch all imports for the snapshot selector
   const importsQuery = useImports();
@@ -222,17 +272,27 @@ export default function HeatmapPage() {
     context: "import snapshots",
   });
 
-  const statsHeader = useMemo(
+  const desktopStatsHeader = useMemo(
     () => <HeatmapStatsHeader properties={properties} isLoading={isLoading} />,
+    [properties, isLoading]
+  );
+  const tabletStatsHeader = useMemo(
+    () => (
+      <HeatmapStatsHeader
+        properties={properties}
+        isLoading={isLoading}
+        variant="tablet"
+      />
+    ),
     [properties, isLoading]
   );
 
   useEffect(() => {
-    setExtras(statsHeader);
+    setExtras(viewportMode === "desktop" ? desktopStatsHeader : null);
     return () => {
       setExtras(null);
     };
-  }, [setExtras, statsHeader]);
+  }, [desktopStatsHeader, setExtras, viewportMode]);
 
   // Get the coordinates for the selected area (for zooming)
   const selectedAreaCoords = useMemo(() => {
@@ -314,6 +374,16 @@ export default function HeatmapPage() {
   const infoPanelStyle = isMobile
     ? undefined
     : { height: infoPanelHeight, maxHeight: infoPanelHeight };
+  const compactPanelTop = "calc(var(--header-height, 72px) + var(--map-top-overlay-height, 0px) + 12px)";
+  const tabletPanelHeight =
+    "calc(100vh - (var(--header-height, 72px) + var(--map-top-overlay-height, 0px) + var(--legend-height, 0px) + 28px))";
+  const tabletPanelStyle = isTablet
+    ? { top: compactPanelTop, height: tabletPanelHeight, maxHeight: tabletPanelHeight }
+    : undefined;
+  const floatingToggleStyle = usesCompactPanels ? { top: compactPanelTop } : undefined;
+  const tabletStatsTop = selectedImport
+    ? "calc(var(--historical-banner-height, 0px) + 12px)"
+    : "12px";
 
   return (
     <div
@@ -322,7 +392,10 @@ export default function HeatmapPage() {
     >
       {/* Historical Data Banner */}
       {selectedImport && (
-        <div className="absolute top-0 left-0 right-0 z-[1001] bg-amber-500 text-white py-2 px-4 text-center text-sm font-medium">
+        <div
+          ref={historicalBannerRef}
+          className="absolute top-0 left-0 right-0 z-[1001] bg-amber-500 text-white py-2 px-4 text-center text-sm font-medium"
+        >
           <History className="inline-block w-4 h-4 mr-2 -mt-0.5" />
           Viewing data from{" "}
           {new Date(selectedImport.uploaded_at).toLocaleDateString("en-GB", {
@@ -333,37 +406,57 @@ export default function HeatmapPage() {
         </div>
       )}
 
-      {/* Mobile Toggle Buttons - only visible on mobile (<768px) */}
-      <button
-        onClick={() => {
-          setControlsPanelOpen(!controlsPanelOpen);
-          setInfoPanelOpen(false);
-        }}
-        className={`fixed z-[1001] w-11 h-11 rounded-lg border border-[#dce3e7] shadow-[0_12px_26px_rgba(15,23,42,0.12)] items-center justify-center transition-all duration-200 active:scale-95 top-[calc(72px+12px)] left-3 hidden max-md:flex ${
-          controlsPanelOpen
-            ? "bg-[#0f5d5e] border-white/35"
-            : "bg-white"
-        }`}
-      >
-        <SlidersHorizontal
-          className={`w-5 h-5 ${controlsPanelOpen ? "stroke-white" : "stroke-[#0f5d5e]"}`}
-        />
-      </button>
-      <button
-        onClick={() => {
-          setInfoPanelOpen(!infoPanelOpen);
-          setControlsPanelOpen(false);
-        }}
-        className={`fixed z-[1001] w-11 h-11 rounded-lg border border-[#dce3e7] shadow-[0_12px_26px_rgba(15,23,42,0.12)] items-center justify-center transition-all duration-200 active:scale-95 top-[calc(72px+12px)] right-3 hidden max-md:flex ${
-          infoPanelOpen
-            ? "bg-[#0f5d5e] border-white/35"
-            : "bg-white"
-        }`}
-      >
-        <BarChart3
-          className={`w-5 h-5 ${infoPanelOpen ? "stroke-white" : "stroke-[#0f5d5e]"}`}
-        />
-      </button>
+      {isTablet && (
+        <div
+          ref={tabletStatsRef}
+          className="absolute left-1/2 z-[1001] w-[min(430px,calc(100vw-132px))] -translate-x-1/2 pointer-events-none"
+          style={{ top: tabletStatsTop }}
+        >
+          {tabletStatsHeader}
+        </div>
+      )}
+
+      {/* Compact-layout Toggle Buttons */}
+      {usesCompactPanels && (
+        <>
+          <button
+            type="button"
+            aria-label={controlsPanelOpen ? "Close control panel" : "Open control panel"}
+            onClick={() => {
+              setControlsPanelOpen(!controlsPanelOpen);
+              setInfoPanelOpen(false);
+            }}
+            style={floatingToggleStyle}
+            className={`fixed z-[1001] w-11 h-11 rounded-lg border border-[#dce3e7] shadow-[0_12px_26px_rgba(15,23,42,0.12)] items-center justify-center transition-all duration-200 active:scale-95 left-3 flex ${
+              controlsPanelOpen
+                ? "bg-[#0f5d5e] border-white/35"
+                : "bg-white"
+            }`}
+          >
+            <SlidersHorizontal
+              className={`w-5 h-5 ${controlsPanelOpen ? "stroke-white" : "stroke-[#0f5d5e]"}`}
+            />
+          </button>
+          <button
+            type="button"
+            aria-label={infoPanelOpen ? "Close visits by area panel" : "Open visits by area panel"}
+            onClick={() => {
+              setInfoPanelOpen(!infoPanelOpen);
+              setControlsPanelOpen(false);
+            }}
+            style={floatingToggleStyle}
+            className={`fixed z-[1001] w-11 h-11 rounded-lg border border-[#dce3e7] shadow-[0_12px_26px_rgba(15,23,42,0.12)] items-center justify-center transition-all duration-200 active:scale-95 right-3 flex ${
+              infoPanelOpen
+                ? "bg-[#0f5d5e] border-white/35"
+                : "bg-white"
+            }`}
+          >
+            <BarChart3
+              className={`w-5 h-5 ${infoPanelOpen ? "stroke-white" : "stroke-[#0f5d5e]"}`}
+            />
+          </button>
+        </>
+      )}
 
       {/* Mobile Overlay - only visible when a panel is open on mobile */}
       {isMobile && (controlsPanelOpen || infoPanelOpen) && (
@@ -375,17 +468,22 @@ export default function HeatmapPage() {
 
       {/* Controls Panel - Left Side */}
       <div
+        style={tabletPanelStyle}
         className={`controls fixed z-[1002] bg-white border border-[#dce3e7] shadow-[0_20px_45px_rgba(15,23,42,0.16)] backdrop-blur-[6px] transition-transform duration-300 ease-out
-          md:top-[calc(72px+18px)] md:left-6 md:w-[280px] md:rounded-[14px] md:p-4 md:translate-x-0
-          max-lg:w-[240px] max-lg:left-4 max-lg:p-3.5
-          max-md:top-0 max-md:left-0 max-md:w-[280px] max-md:max-w-[85vw] max-md:h-screen max-md:max-h-screen max-md:overflow-y-auto max-md:rounded-none max-md:pt-[72px] max-md:px-4 max-md:pb-5
-          max-sm:w-full max-sm:max-w-full
-          ${isMobile ? (controlsPanelOpen ? "translate-x-0" : "-translate-x-full") : ""}`}
+          ${isTablet
+            ? `${controlsPanelOpen ? "translate-x-0" : "-translate-x-[calc(100%+24px)]"} left-4 w-[280px] rounded-[14px] p-4 overflow-y-auto`
+            : isMobile
+              ? `${controlsPanelOpen ? "translate-x-0" : "-translate-x-full"} top-0 left-0 w-[280px] max-w-[85vw] h-screen max-h-screen overflow-y-auto rounded-none pt-[72px] px-4 pb-5 max-sm:w-full max-sm:max-w-full`
+              : "top-[calc(72px+18px)] left-6 w-[280px] rounded-[14px] p-4 translate-x-0"}`}
       >
         {/* Mobile Close Button */}
         <button
+          type="button"
+          aria-label="Close control panel"
           onClick={() => setControlsPanelOpen(false)}
-          className="absolute top-2.5 right-2.5 w-8 h-8 border border-[#dce3e7] bg-[#f4f7f6] rounded-md items-center justify-center hidden max-md:flex hover:bg-[#eef2f1]"
+          className={`absolute top-2.5 right-2.5 w-8 h-8 border border-[#dce3e7] bg-[#f4f7f6] rounded-md items-center justify-center hover:bg-[#eef2f1] ${
+            usesCompactPanels ? "flex" : "hidden"
+          }`}
         >
           <X className="w-4 h-4 stroke-[#627083]" />
         </button>
@@ -633,18 +731,22 @@ export default function HeatmapPage() {
 
       {/* Info Panel - Right Side (Area Statistics) */}
       <div
-        style={infoPanelStyle}
+        style={isTablet ? tabletPanelStyle : infoPanelStyle}
         className={`info-panel fixed z-[1002] bg-white border border-[#dce3e7] shadow-[0_20px_45px_rgba(15,23,42,0.16)] backdrop-blur-md transition-transform duration-300 ease-out overflow-hidden flex flex-col
-          md:top-[calc(72px+18px)] md:right-6 md:w-[280px] md:rounded-[14px] md:p-4 md:translate-x-0
-          max-lg:right-4 max-lg:p-3.5
-          max-md:top-0 max-md:right-0 max-md:w-[280px] max-md:max-w-[85vw] max-md:h-screen max-md:max-h-screen max-md:rounded-none max-md:pt-[72px] max-md:px-4 max-md:pb-5
-          max-sm:w-full max-sm:max-w-full
-          ${isMobile ? (infoPanelOpen ? "translate-x-0" : "translate-x-full") : ""}`}
+          ${isTablet
+            ? `${infoPanelOpen ? "translate-x-0" : "translate-x-[calc(100%+24px)]"} right-4 w-[280px] rounded-[14px] p-4`
+            : isMobile
+              ? `${infoPanelOpen ? "translate-x-0" : "translate-x-full"} top-0 right-0 w-[280px] max-w-[85vw] h-screen max-h-screen rounded-none pt-[72px] px-4 pb-5 max-sm:w-full max-sm:max-w-full`
+              : "top-[calc(72px+18px)] right-6 w-[280px] rounded-[14px] p-4 translate-x-0"}`}
       >
         {/* Mobile Close Button */}
         <button
+          type="button"
+          aria-label="Close visits by area panel"
           onClick={() => setInfoPanelOpen(false)}
-          className="absolute top-2.5 right-2.5 w-8 h-8 border border-[#dce3e7] bg-[#f4f7f6] rounded-md items-center justify-center hidden max-md:flex hover:bg-[#eef2f1]"
+          className={`absolute top-2.5 right-2.5 w-8 h-8 border border-[#dce3e7] bg-[#f4f7f6] rounded-md items-center justify-center hover:bg-[#eef2f1] ${
+            usesCompactPanels ? "flex" : "hidden"
+          }`}
         >
           <X className="w-4 h-4 stroke-[#627083]" />
         </button>

@@ -37,30 +37,37 @@ export default function MapController({ center, zoom }: MapControllerProps) {
     const getPopupPadding = () => {
       const header = document.querySelector("header");
       const headerHeight = header ? header.getBoundingClientRect().height : 0;
+      const rootStyles = getComputedStyle(document.documentElement);
+      const topOverlayHeight = parseInt(
+        rootStyles.getPropertyValue("--map-top-overlay-height"),
+        10
+      ) || 0;
       const basePadding = 20;
 
       if (window.innerWidth <= 767) {
         return {
-          topLeft: L.point(basePadding, headerHeight + basePadding),
+          topLeft: L.point(basePadding, headerHeight + topOverlayHeight + basePadding),
           bottomRight: L.point(basePadding, basePadding),
         };
       }
 
       const controlsPanel = document.querySelector(".controls");
       const infoPanel = document.querySelector(".info-panel");
-      const controlsStyles = controlsPanel ? getComputedStyle(controlsPanel) : null;
-      const infoStyles = infoPanel ? getComputedStyle(infoPanel) : null;
-      const controlsLeft = controlsStyles ? parseInt(controlsStyles.left, 10) : 0;
-      const infoRight = infoStyles ? parseInt(infoStyles.right, 10) : 0;
-      const controlsWidth = controlsPanel ? controlsPanel.clientWidth : 0;
-      const infoWidth = infoPanel ? infoPanel.clientWidth : 0;
-      const safeControlsLeft = Number.isNaN(controlsLeft) ? 0 : controlsLeft;
-      const safeInfoRight = Number.isNaN(infoRight) ? 0 : infoRight;
-      const leftPadding = Math.max(basePadding, safeControlsLeft + controlsWidth + basePadding);
-      const rightPadding = Math.max(basePadding, safeInfoRight + infoWidth + basePadding);
+      const controlsRect = controlsPanel?.getBoundingClientRect();
+      const infoRect = infoPanel?.getBoundingClientRect();
+      const controlsVisible =
+        !!controlsRect && controlsRect.right > 0 && controlsRect.left < window.innerWidth;
+      const infoVisible =
+        !!infoRect && infoRect.left < window.innerWidth && infoRect.right > 0;
+      const leftPadding = controlsVisible
+        ? Math.max(basePadding, (controlsRect?.right ?? 0) + basePadding)
+        : basePadding;
+      const rightPadding = infoVisible
+        ? Math.max(basePadding, window.innerWidth - (infoRect?.left ?? window.innerWidth) + basePadding)
+        : basePadding;
 
       return {
-        topLeft: L.point(leftPadding, headerHeight + basePadding),
+        topLeft: L.point(leftPadding, headerHeight + topOverlayHeight + basePadding),
         bottomRight: L.point(rightPadding, basePadding),
       };
     };
