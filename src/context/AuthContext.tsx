@@ -21,11 +21,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const { data, error } = await supabase.auth.getUser();
 
         if (error) {
-          // Log the error but don't throw - user simply won't be authenticated
-          logger.warn("Failed to get authenticated user", {
-            error: error.message,
-            code: error.status,
-          });
+          const isMissingSession =
+            error.status === 400 && error.message.includes("Auth session missing");
+
+          if (isMissingSession) {
+            logger.debug("No active auth session found");
+          } else {
+            logger.warn("Failed to get authenticated user", {
+              error: error.message,
+              code: error.status,
+            });
+          }
           setUser(null);
         } else {
           setUser(data.user || null);

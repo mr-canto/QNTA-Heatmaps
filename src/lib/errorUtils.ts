@@ -9,6 +9,16 @@ export function formatErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
 
+    // Auth/backend timeouts
+    if (
+      message.includes("context deadline exceeded") ||
+      message.includes("request timed out") ||
+      message.includes("gateway timeout") ||
+      message.includes("status 504")
+    ) {
+      return "The sign-in service took too long to respond. Please try again in a moment.";
+    }
+
     // Network errors
     if (message.includes("failed to fetch") || message.includes("network")) {
       return "Unable to connect to the server. Please check your internet connection.";

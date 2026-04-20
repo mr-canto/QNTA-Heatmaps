@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { formatErrorMessage, isAuthError } from "@/lib/errorUtils";
 import { useNavigate } from "react-router-dom";
+import { queryClient } from "@/lib/queryClient";
 
 interface UseQueryErrorHandlerOptions {
   error: Error | null;
@@ -27,6 +28,7 @@ export function useQueryErrorHandler({
     if (isError && error) {
       // Check for auth errors and redirect to login
       if (isAuthError(error)) {
+        queryClient.clear();
         toast.error("Session expired", {
           description: "Please sign in again to continue.",
         });
