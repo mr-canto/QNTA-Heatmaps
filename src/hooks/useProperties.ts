@@ -43,42 +43,59 @@ async function fetchProperties(filters: PropertyFilters): Promise<Property[]> {
     importId = currentImport.id;
   }
 
-  // Build the query
-  let query = supabase
-    .from("properties")
-    .select("*")
-    .eq("import_id", importId);
+  const buildQuery = () => {
+    let query = supabase
+      .from("properties")
+      .select("*")
+      .eq("import_id", importId);
 
-  // Apply outcode filter
-  if (filters.outcode) {
-    query = query.eq("outcode", filters.outcode);
+    if (filters.outcode) {
+      query = query.eq("outcode", filters.outcode);
+    }
+
+    if (filters.visitType === "single") {
+      query = query.eq("visit_count", 1);
+    } else if (filters.visitType === "multi") {
+      query = query.gt("visit_count", 1);
+    }
+
+    if (filters.minVisits && filters.minVisits > 1) {
+      query = query.gte("visit_count", filters.minVisits);
+    }
+
+    if (filters.searchTerm && filters.searchTerm.trim()) {
+      const sanitizedTerm = sanitizeSearchTerm(filters.searchTerm.trim());
+      query = query.or(`address.ilike.%${sanitizedTerm}%,postcode.ilike.%${sanitizedTerm}%`);
+    }
+
+    return query;
+  };
+
+  const pageSize = 1000;
+  let from = 0;
+  const allProperties: Property[] = [];
+
+  while (true) {
+    const { data, error } = await buildQuery().range(from, from + pageSize - 1);
+
+    if (error) {
+      throw new Error(`Failed to fetch properties: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allProperties.push(...data);
+
+    if (data.length < pageSize) {
+      break;
+    }
+
+    from += pageSize;
   }
 
-  // Apply visit type filter
-  if (filters.visitType === "single") {
-    query = query.eq("visit_count", 1);
-  } else if (filters.visitType === "multi") {
-    query = query.gt("visit_count", 1);
-  }
-
-  // Apply minimum visits filter
-  if (filters.minVisits && filters.minVisits > 1) {
-    query = query.gte("visit_count", filters.minVisits);
-  }
-
-  // Apply search filter with sanitized input to prevent SQL injection
-  if (filters.searchTerm && filters.searchTerm.trim()) {
-    const sanitizedTerm = sanitizeSearchTerm(filters.searchTerm.trim());
-    query = query.or(`address.ilike.%${sanitizedTerm}%,postcode.ilike.%${sanitizedTerm}%`);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw new Error(`Failed to fetch properties: ${error.message}`);
-  }
-
-  return data ?? [];
+  return allProperties;
 }
 
 export function useProperties(filters: PropertyFilters = {}) {

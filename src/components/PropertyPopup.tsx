@@ -104,9 +104,6 @@ export default function PropertyPopup({ property, onClose }: PropertyPopupProps)
         <section className="popup-address-block">
           <div className="info-label">Address</div>
           <div className="popup-address-value">{property.address}</div>
-          <div className="popup-address-meta">
-            {[property.outcode, property.postcode].filter(Boolean).join(" / ")}
-          </div>
         </section>
 
         <section className="popup-summary-grid" aria-label="Property summary">
@@ -115,17 +112,17 @@ export default function PropertyPopup({ property, onClose }: PropertyPopupProps)
             <span className="popup-summary-value highlight">{property.visit_count}</span>
           </div>
 
-          {latestWorkOrderRef && (
-            <div className="popup-summary-card">
-              <span className="info-label">Latest work order</span>
-              <span className="popup-summary-value">{latestWorkOrderRef}</span>
-            </div>
-          )}
-
           {totalEstimatedCost !== null && (
             <div className="popup-summary-card">
               <span className="info-label">Est. total cost</span>
               <span className="popup-summary-value">{formatCurrency(totalEstimatedCost)}</span>
+            </div>
+          )}
+
+          {latestWorkOrderRef && (
+            <div className="popup-summary-card">
+              <span className="info-label">Latest work order</span>
+              <span className="popup-summary-value">{latestWorkOrderRef}</span>
             </div>
           )}
         </section>

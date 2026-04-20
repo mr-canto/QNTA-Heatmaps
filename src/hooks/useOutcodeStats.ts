@@ -10,23 +10,29 @@ export interface OutcodeStats {
   lon: number;
 }
 
-async function fetchOutcodeStats(): Promise<OutcodeStats[]> {
-  // First, get the current import
-  const { data: currentImport, error: importError } = await supabase
-    .from("imports")
-    .select("id")
-    .eq("is_current", true)
-    .single();
+async function fetchOutcodeStats(importId: string | null): Promise<OutcodeStats[]> {
+  let targetImportId = importId;
 
-  if (importError || !currentImport) {
-    return [];
+  if (!targetImportId) {
+    const { data: currentImport, error: importError } = await supabase
+      .from("imports")
+      .select("id")
+      .eq("is_current", true)
+      .eq("status", "completed")
+      .single();
+
+    if (importError || !currentImport) {
+      return [];
+    }
+
+    targetImportId = currentImport.id;
   }
 
   // Fetch all outcodes ordered by total visits
   const { data: stats, error: statsError } = await supabase
     .from("outcode_stats")
     .select("outcode, area_name, total_visits, property_count, lat, lon")
-    .eq("import_id", currentImport.id)
+    .eq("import_id", targetImportId)
     .order("total_visits", { ascending: false });
 
   if (statsError) {
@@ -43,10 +49,10 @@ async function fetchOutcodeStats(): Promise<OutcodeStats[]> {
   }));
 }
 
-export function useOutcodeStats() {
+export function useOutcodeStats(importId: string | null = null) {
   return useQuery({
-    queryKey: ["outcodeStats"],
-    queryFn: fetchOutcodeStats,
+    queryKey: ["outcodeStats", importId ?? "current"],
+    queryFn: () => fetchOutcodeStats(importId),
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }

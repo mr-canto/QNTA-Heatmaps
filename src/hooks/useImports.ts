@@ -6,13 +6,14 @@ export interface Import {
   filename: string;
   record_count: number;
   is_current: boolean;
+  status: "pending" | "processing" | "completed" | "failed";
   uploaded_at: string;
 }
 
 async function fetchImports(): Promise<Import[]> {
   const { data, error } = await supabase
     .from("imports")
-    .select("id, filename, record_count, is_current, uploaded_at")
+    .select("id, filename, record_count, is_current, status, uploaded_at")
     .order("uploaded_at", { ascending: false });
 
   if (error) {

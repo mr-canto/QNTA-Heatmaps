@@ -16,9 +16,10 @@ import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Search, X, Download, History, SlidersHorizontal, BarChart3 } from "lucide-react";
@@ -107,11 +108,14 @@ export default function HeatmapPage() {
 
   // Fetch all imports for the snapshot selector
   const importsQuery = useImports();
-  const imports = importsQuery.data ?? [];
+  const imports = useMemo(
+    () => (importsQuery.data ?? []).filter((imp) => imp.status === "completed"),
+    [importsQuery.data]
+  );
 
   // Fetch outcode stats for the dropdown
-  const statsQuery = useOutcodeStats();
-  const outcodeStats = statsQuery.data ?? [];
+  const statsQuery = useOutcodeStats(selectedImportId);
+  const outcodeStats = useMemo(() => statsQuery.data ?? [], [statsQuery.data]);
   const isStatsLoading = statsQuery.isLoading;
 
   // Update scroll indicator for area stats
@@ -144,16 +148,38 @@ export default function HeatmapPage() {
     return imports.find((i) => i.id === selectedImportId) ?? null;
   }, [selectedImportId, imports]);
 
+  const currentImport = useMemo(
+    () => imports.find((imp) => imp.is_current) ?? null,
+    [imports]
+  );
+
+  const formatSnapshotDate = useCallback((uploadedAt: string) => {
+    return new Date(uploadedAt).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }, []);
+
+  const snapshotTriggerLabel = selectedImport
+    ? formatSnapshotDate(selectedImport.uploaded_at)
+    : "Current";
+
+  const effectiveSelectedArea = useMemo(() => {
+    if (!selectedArea) return null;
+    return outcodeStats.some((area) => area.outcode === selectedArea) ? selectedArea : null;
+  }, [selectedArea, outcodeStats]);
+
   // Build filters based on selected area, visit type, min visits, search, and import
   const filters = useMemo<PropertyFilters>(
     () => ({
       importId: selectedImportId,
-      outcode: selectedArea,
+      outcode: effectiveSelectedArea,
       visitType: visitType,
       minVisits: minVisits,
       searchTerm: searchTerm,
     }),
-    [selectedImportId, selectedArea, visitType, minVisits, searchTerm]
+    [selectedImportId, effectiveSelectedArea, visitType, minVisits, searchTerm]
   );
 
   // Fetch properties based on filters
@@ -368,21 +394,38 @@ export default function HeatmapPage() {
               }
             >
               <SelectTrigger className="ml-auto w-[140px] text-[12px] border-[#dce3e7] bg-[#eef2f1] rounded-[10px] max-md:py-3 max-md:text-[13px]">
-                <SelectValue placeholder="Select snapshot" />
+                <span className="truncate">{snapshotTriggerLabel}</span>
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="current">Current</SelectItem>
-                {imports
-                  .filter((i) => !i.is_current)
-                  .map((imp) => (
-                    <SelectItem key={imp.id} value={imp.id}>
-                      {new Date(imp.uploaded_at).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </SelectItem>
-                  ))}
+              <SelectContent
+                position="popper"
+                align="end"
+                className="z-[1200] max-h-[320px] min-w-[280px]"
+              >
+                <SelectGroup>
+                  <SelectLabel>Snapshots</SelectLabel>
+                  <SelectItem value="current">
+                    <div className="flex flex-col">
+                      <span>Current · {currentImport ? formatSnapshotDate(currentImport.uploaded_at) : "Latest"}</span>
+                      {currentImport && (
+                        <span className="text-[11px] text-[#627083]">
+                          {currentImport.filename} · {currentImport.record_count.toLocaleString()} properties
+                        </span>
+                      )}
+                    </div>
+                  </SelectItem>
+                  {imports
+                    .filter((imp) => !imp.is_current)
+                    .map((imp) => (
+                      <SelectItem key={imp.id} value={imp.id}>
+                        <div className="flex flex-col">
+                          <span>{formatSnapshotDate(imp.uploaded_at)}</span>
+                          <span className="text-[11px] text-[#627083]">
+                            {imp.filename} · {imp.record_count.toLocaleString()} properties
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
@@ -489,21 +532,40 @@ export default function HeatmapPage() {
             Filter by Area
           </div>
           <Select
-            value={selectedArea ?? "all"}
+            value={effectiveSelectedArea ?? "all"}
             onValueChange={(value) =>
               setSelectedArea(value === "all" ? null : value)
             }
           >
             <SelectTrigger className="w-full text-[12px] border-[#dce3e7] bg-[#eef2f1] rounded-[10px] max-md:py-3 max-md:text-[13px]">
-              <SelectValue placeholder="All Areas" />
+              <span className="truncate">
+                {effectiveSelectedArea
+                  ? outcodeStats.find((area) => area.outcode === effectiveSelectedArea)?.areaName ??
+                    effectiveSelectedArea
+                  : "All Areas"}
+              </span>
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Areas</SelectItem>
-              {outcodeStats.map((area) => (
-                <SelectItem key={area.outcode} value={area.outcode}>
-                  {area.areaName}, {area.outcode} ({area.totalVisits.toLocaleString()})
-                </SelectItem>
-              ))}
+            <SelectContent
+              position="popper"
+              align="start"
+              className="z-[1200] max-h-[320px] min-w-[280px]"
+            >
+              <SelectGroup>
+                <SelectLabel>Areas</SelectLabel>
+                <SelectItem value="all">All Areas</SelectItem>
+                {outcodeStats.map((area) => (
+                  <SelectItem key={area.outcode} value={area.outcode}>
+                    <div className="flex flex-col">
+                      <span>
+                        {area.areaName}, {area.outcode}
+                      </span>
+                      <span className="text-[11px] text-[#627083]">
+                        {area.totalVisits.toLocaleString()} visits
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>
