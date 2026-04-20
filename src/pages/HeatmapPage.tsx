@@ -19,6 +19,7 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
 } from "@/components/ui/select";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -164,6 +165,19 @@ export default function HeatmapPage() {
   const snapshotTriggerLabel = selectedImport
     ? formatSnapshotDate(selectedImport.uploaded_at)
     : "Current";
+
+  const historicalImportsByYear = useMemo(() => {
+    const grouped = new Map<string, typeof imports>();
+
+    for (const importRecord of imports.filter((imp) => !imp.is_current)) {
+      const year = new Date(importRecord.uploaded_at).getFullYear().toString();
+      const bucket = grouped.get(year) ?? [];
+      bucket.push(importRecord);
+      grouped.set(year, bucket);
+    }
+
+    return Array.from(grouped.entries()).sort((a, b) => Number(b[0]) - Number(a[0]));
+  }, [imports]);
 
   const effectiveSelectedArea = useMemo(() => {
     if (!selectedArea) return null;
@@ -402,7 +416,7 @@ export default function HeatmapPage() {
                 className="z-[1200] max-h-[320px] min-w-[280px]"
               >
                 <SelectGroup>
-                  <SelectLabel>Snapshots</SelectLabel>
+                  <SelectLabel>Current Snapshot</SelectLabel>
                   <SelectItem value="current">
                     <div className="flex flex-col">
                       <span>Current · {currentImport ? formatSnapshotDate(currentImport.uploaded_at) : "Latest"}</span>
@@ -413,9 +427,14 @@ export default function HeatmapPage() {
                       )}
                     </div>
                   </SelectItem>
-                  {imports
-                    .filter((imp) => !imp.is_current)
-                    .map((imp) => (
+                </SelectGroup>
+
+                {historicalImportsByYear.length > 0 && <SelectSeparator />}
+
+                {historicalImportsByYear.map(([year, yearImports]) => (
+                  <SelectGroup key={year}>
+                    <SelectLabel>{year}</SelectLabel>
+                    {yearImports.map((imp) => (
                       <SelectItem key={imp.id} value={imp.id}>
                         <div className="flex flex-col">
                           <span>{formatSnapshotDate(imp.uploaded_at)}</span>
@@ -425,7 +444,8 @@ export default function HeatmapPage() {
                         </div>
                       </SelectItem>
                     ))}
-                </SelectGroup>
+                  </SelectGroup>
+                ))}
               </SelectContent>
             </Select>
           </div>
