@@ -140,8 +140,8 @@ body {
 
 /* Zoom control positioning and styling (match HTML) */
 .leaflet-top.leaflet-left {
-  top: 18px;
-  left: calc(24px + 280px + 12px);
+  top: var(--map-control-top-offset, 18px);
+  left: var(--map-control-left-offset, calc(24px + 280px + 12px));
 }
 
 .leaflet-control-zoom {
@@ -239,19 +239,7 @@ body {
   outline-offset: 2px;
 }
 
-@media screen and (max-width: 1024px) {
-  .leaflet-top.leaflet-left {
-    top: 18px;
-    left: calc(16px + 240px + 12px);
-  }
-}
-
 @media screen and (max-width: 767px) {
-  .leaflet-top.leaflet-left {
-    top: 12px;
-    left: 70px;
-  }
-
   .leaflet-control-zoom {
     margin-top: 0 !important;
     margin-left: 0 !important;

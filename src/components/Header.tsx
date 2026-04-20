@@ -59,17 +59,17 @@ export function Header() {
           "radial-gradient(circle at 30% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 50%)",
       }}
     >
-      <div className="relative flex items-center justify-between w-full px-6">
-        <div className="flex items-center gap-8 shrink-0">
+      <div className="flex items-center justify-between w-full gap-4 px-6">
+        <div className="flex items-center gap-8 min-w-0">
           <Link
             to="/dashboard"
-            className="text-white text-xl font-semibold tracking-tight"
+            className="shrink-0 text-white text-xl font-semibold tracking-tight"
             style={{ fontFamily: "Fraunces, serif" }}
           >
             QNTA Heatmaps
           </Link>
 
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-1 shrink-0">
             {navLinks.map((link) => {
               const isActive = location.pathname === link.path;
               return (
@@ -89,47 +89,49 @@ export function Header() {
           </nav>
         </div>
 
-        {extras && (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-            {extras}
-          </div>
-        )}
+        <div className="flex items-center justify-end gap-3 shrink-0">
+          {extras && (
+            <div className="hidden min-[880px]:flex items-center justify-end">
+              {extras}
+            </div>
+          )}
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#0f5d5e]"
-              aria-label="User menu"
-            >
-              <UserAvatar
-                name={user?.user_metadata?.full_name}
-                email={user?.email}
-                size="md"
-              />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 z-[1100]">
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{userName}</p>
-                {user?.email && (
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {user.email}
-                  </p>
-                )}
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => signOut()}
-              disabled={isSigningOut}
-              className="cursor-pointer text-destructive focus:text-destructive"
-            >
-              <LogOut className="mr-2 size-4" />
-              {isSigningOut ? "Signing out..." : "Sign Out"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#0f5d5e]"
+                aria-label="User menu"
+              >
+                <UserAvatar
+                  name={user?.user_metadata?.full_name}
+                  email={user?.email}
+                  size="md"
+                />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 z-[1100]">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{userName}</p>
+                  {user?.email && (
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user.email}
+                    </p>
+                  )}
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => signOut()}
+                disabled={isSigningOut}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <LogOut className="mr-2 size-4" />
+                {isSigningOut ? "Signing out..." : "Sign Out"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );
