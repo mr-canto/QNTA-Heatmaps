@@ -1,0 +1,650 @@
+{
+  "SE15": {
+    "southwark_wards": [
+      [
+        "Peckham",
+        122
+      ],
+      [
+        "Nunhead & Queen's Road",
+        122
+      ],
+      [
+        "Rye Lane",
+        120
+      ],
+      [
+        "Old Kent Road",
+        100
+      ],
+      [
+        "Peckham Rye",
+        49
+      ],
+      [
+        "St Giles",
+        8
+      ],
+      [
+        "Goose Green",
+        6
+      ]
+    ],
+    "all_wards": [
+      [
+        "Peckham",
+        122
+      ],
+      [
+        "Nunhead & Queen's Road",
+        122
+      ],
+      [
+        "Rye Lane",
+        120
+      ],
+      [
+        "Old Kent Road",
+        100
+      ],
+      [
+        "Peckham Rye",
+        49
+      ],
+      [
+        "St Giles",
+        8
+      ],
+      [
+        "Goose Green",
+        6
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        527
+      ]
+    ]
+  },
+  "SE1": {
+    "southwark_wards": [
+      [
+        "Chaucer",
+        80
+      ],
+      [
+        "London Bridge & West Bermondsey",
+        62
+      ],
+      [
+        "South Bermondsey",
+        50
+      ],
+      [
+        "Borough & Bankside",
+        35
+      ],
+      [
+        "St George's",
+        29
+      ],
+      [
+        "Old Kent Road",
+        17
+      ],
+      [
+        "North Bermondsey",
+        7
+      ],
+      [
+        "North Walworth",
+        7
+      ]
+    ],
+    "all_wards": [
+      [
+        "Chaucer",
+        80
+      ],
+      [
+        "London Bridge & West Bermondsey",
+        62
+      ],
+      [
+        "South Bermondsey",
+        50
+      ],
+      [
+        "Borough & Bankside",
+        35
+      ],
+      [
+        "St George's",
+        29
+      ],
+      [
+        "Old Kent Road",
+        17
+      ],
+      [
+        "North Bermondsey",
+        7
+      ],
+      [
+        "North Walworth",
+        7
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        287
+      ]
+    ]
+  },
+  "SE17": {
+    "southwark_wards": [
+      [
+        "Newington",
+        120
+      ],
+      [
+        "Faraday",
+        98
+      ],
+      [
+        "North Walworth",
+        69
+      ]
+    ],
+    "all_wards": [
+      [
+        "Newington",
+        120
+      ],
+      [
+        "Faraday",
+        98
+      ],
+      [
+        "North Walworth",
+        69
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        287
+      ]
+    ]
+  },
+  "SE16": {
+    "southwark_wards": [
+      [
+        "North Bermondsey",
+        98
+      ],
+      [
+        "Rotherhithe",
+        76
+      ],
+      [
+        "South Bermondsey",
+        60
+      ],
+      [
+        "Old Kent Road",
+        20
+      ],
+      [
+        "Surrey Docks",
+        11
+      ]
+    ],
+    "all_wards": [
+      [
+        "North Bermondsey",
+        98
+      ],
+      [
+        "Rotherhithe",
+        76
+      ],
+      [
+        "South Bermondsey",
+        60
+      ],
+      [
+        "Old Kent Road",
+        20
+      ],
+      [
+        "Surrey Docks",
+        11
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        265
+      ]
+    ]
+  },
+  "SE5": {
+    "southwark_wards": [
+      [
+        "Camberwell Green",
+        119
+      ],
+      [
+        "St Giles",
+        102
+      ],
+      [
+        "Champion Hill",
+        49
+      ],
+      [
+        "Newington",
+        17
+      ],
+      [
+        "Faraday",
+        5
+      ],
+      [
+        "Old Kent Road",
+        3
+      ],
+      [
+        "Peckham",
+        2
+      ]
+    ],
+    "all_wards": [
+      [
+        "Camberwell Green",
+        119
+      ],
+      [
+        "St Giles",
+        102
+      ],
+      [
+        "Champion Hill",
+        49
+      ],
+      [
+        "Newington",
+        17
+      ],
+      [
+        "Faraday",
+        5
+      ],
+      [
+        "Old Kent Road",
+        3
+      ],
+      [
+        "Peckham",
+        2
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        297
+      ]
+    ]
+  },
+  "SE22": {
+    "southwark_wards": [
+      [
+        "Goose Green",
+        63
+      ],
+      [
+        "Dulwich Hill",
+        43
+      ],
+      [
+        "Champion Hill",
+        26
+      ],
+      [
+        "Dulwich Wood",
+        14
+      ],
+      [
+        "Dulwich Village",
+        7
+      ],
+      [
+        "Peckham Rye",
+        4
+      ]
+    ],
+    "all_wards": [
+      [
+        "Goose Green",
+        63
+      ],
+      [
+        "Dulwich Hill",
+        43
+      ],
+      [
+        "Champion Hill",
+        26
+      ],
+      [
+        "Dulwich Wood",
+        14
+      ],
+      [
+        "Dulwich Village",
+        7
+      ],
+      [
+        "Peckham Rye",
+        4
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        157
+      ]
+    ]
+  },
+  "SE21": {
+    "southwark_wards": [
+      [
+        "Dulwich Wood",
+        38
+      ],
+      [
+        "Dulwich Village",
+        2
+      ]
+    ],
+    "all_wards": [
+      [
+        "Dulwich Wood",
+        38
+      ],
+      [
+        "Dulwich Village",
+        2
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        40
+      ]
+    ]
+  },
+  "SE24": {
+    "southwark_wards": [
+      [
+        "Dulwich Village",
+        37
+      ],
+      [
+        "Champion Hill",
+        1
+      ]
+    ],
+    "all_wards": [
+      [
+        "Dulwich Village",
+        37
+      ],
+      [
+        "Champion Hill",
+        1
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        38
+      ]
+    ]
+  },
+  "SE11": {
+    "southwark_wards": [
+      [
+        "St George's",
+        14
+      ],
+      [
+        "Newington",
+        3
+      ]
+    ],
+    "all_wards": [
+      [
+        "St George's",
+        14
+      ],
+      [
+        "Newington",
+        3
+      ],
+      [
+        "Kennington",
+        1
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        17
+      ],
+      [
+        "Lambeth",
+        1
+      ]
+    ]
+  },
+  "SE23": {
+    "southwark_wards": [
+      [
+        "Dulwich Wood",
+        6
+      ],
+      [
+        "Peckham Rye",
+        5
+      ]
+    ],
+    "all_wards": [
+      [
+        "Dulwich Wood",
+        6
+      ],
+      [
+        "Peckham Rye",
+        5
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        11
+      ]
+    ]
+  },
+  "SE14": {
+    "southwark_wards": [
+      [
+        "Nunhead & Queen's Road",
+        4
+      ]
+    ],
+    "all_wards": [
+      [
+        "Nunhead & Queen's Road",
+        4
+      ],
+      [
+        "New Cross Gate",
+        1
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        4
+      ],
+      [
+        "Lewisham",
+        1
+      ]
+    ]
+  },
+  "SE8": {
+    "southwark_wards": [
+      [
+        "Rotherhithe",
+        5
+      ]
+    ],
+    "all_wards": [
+      [
+        "Rotherhithe",
+        5
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        5
+      ]
+    ]
+  },
+  "SE19": {
+    "southwark_wards": [
+      [
+        "Dulwich Wood",
+        7
+      ]
+    ],
+    "all_wards": [
+      [
+        "Dulwich Wood",
+        7
+      ],
+      [
+        "Gipsy Hill",
+        1
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        7
+      ],
+      [
+        "Lambeth",
+        1
+      ]
+    ]
+  },
+  "SE26": {
+    "southwark_wards": [
+      [
+        "Dulwich Wood",
+        2
+      ]
+    ],
+    "all_wards": [
+      [
+        "Dulwich Wood",
+        2
+      ],
+      [
+        "Sydenham",
+        1
+      ]
+    ],
+    "districts": [
+      [
+        "Southwark",
+        2
+      ],
+      [
+        "Lewisham",
+        1
+      ]
+    ]
+  },
+  "SE27": {
+    "southwark_wards": [],
+    "all_wards": [
+      [
+        "Knight's Hill",
+        3
+      ]
+    ],
+    "districts": [
+      [
+        "Lambeth",
+        3
+      ]
+    ]
+  },
+  "SE6": {
+    "southwark_wards": [],
+    "all_wards": [
+      [
+        "Catford South",
+        1
+      ],
+      [
+        "Rushey Green",
+        1
+      ]
+    ],
+    "districts": [
+      [
+        "Lewisham",
+        2
+      ]
+    ]
+  },
+  "DA14": {
+    "southwark_wards": [],
+    "all_wards": [
+      [
+        "Longlands",
+        1
+      ]
+    ],
+    "districts": [
+      [
+        "Bexley",
+        1
+      ]
+    ]
+  },
+  "SE4": {
+    "southwark_wards": [],
+    "all_wards": [
+      [
+        "Brockley",
+        1
+      ]
+    ],
+    "districts": [
+      [
+        "Lewisham",
+        1
+      ]
+    ]
+  }
+}

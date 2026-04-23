@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(document-skills:webapp-testing)",
+      "Skill(document-skills:webapp-testing:*)",
+      "Bash(npx supabase:*)"
+    ]
+  }
+}

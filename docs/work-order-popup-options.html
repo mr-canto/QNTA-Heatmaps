@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Work Order Popup Options</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --teal: #0f5d5e;
+        --teal-dark: #0b4d4f;
+        --coral: #d16b55;
+        --ink: #1f2a37;
+        --muted: #8996a5;
+        --border: #dce3e7;
+        --panel: #ffffff;
+        --bg: #f7f9fb;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Manrope", "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+      }
+
+      .page {
+        max-width: 1100px;
+        margin: 32px auto 48px;
+        padding: 0 20px;
+      }
+
+      .page h1 {
+        font-size: 22px;
+        margin: 0 0 8px;
+        color: var(--ink);
+      }
+
+      .page p {
+        margin: 0 0 24px;
+        color: #627083;
+      }
+
+      .option-grid {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      }
+
+      .option-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+      }
+
+      .option-title {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #627083;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+
+      /* Popup styles (mirrors app) */
+      .icon-popup {
+        background: #ffffff;
+        border-radius: 14px;
+        overflow: hidden;
+        min-width: 320px;
+        border: 1px solid var(--border);
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.16);
+      }
+
+      .icon-popup .popup-banner {
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .icon-popup .popup-banner.single {
+        background: var(--teal);
+      }
+
+      .icon-popup .popup-banner.multiple {
+        background: var(--coral);
+      }
+
+      .icon-popup .banner-title {
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+      }
+
+      .icon-popup .badge-header {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 12px;
+        border-radius: 14px;
+        font-size: 11px;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        white-space: nowrap;
+      }
+
+      .icon-popup .badge-header .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        margin-right: 8px;
+        background: white;
+      }
+
+      .icon-popup .popup-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 22px;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        opacity: 0.9;
+      }
+
+      .icon-popup .popup-body {
+        padding: 16px;
+      }
+
+      .icon-popup .info-section {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 14px;
+      }
+
+      .icon-popup .info-section:last-child {
+        margin-bottom: 0;
+      }
+
+      .icon-popup .info-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 12px;
+        flex-shrink: 0;
+      }
+
+      .icon-popup .info-icon.location {
+        background: #f7e5df;
+      }
+
+      .icon-popup .info-icon.visits {
+        background: #f7e5df;
+      }
+
+      .icon-popup .info-icon.work-orders {
+        background: #f7e5df;
+      }
+
+      .icon-popup .info-icon svg {
+        width: 16px;
+        height: 16px;
+        stroke-width: 2;
+        fill: none;
+        stroke: var(--coral);
+      }
+
+      .icon-popup .info-content {
+        flex: 1;
+      }
+
+      .icon-popup .info-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        margin-bottom: 3px;
+      }
+
+      .icon-popup .info-value {
+        font-size: 14px;
+        font-weight: 400;
+        color: var(--ink);
+        line-height: 1.5;
+      }
+
+      .icon-popup .info-value.highlight {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--coral);
+      }
+
+      .link {
+        background: none;
+        border: none;
+        color: var(--coral);
+        font-weight: 600;
+        padding: 0;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .link.subtle {
+        color: #a94d3b;
+      }
+
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 5px 10px;
+        font-size: 12px;
+        border: 1px solid #efc5ba;
+        background: #fff4f1;
+        color: #8c3d2d;
+        font-weight: 600;
+      }
+
+      .expand-panel {
+        margin-top: 10px;
+        padding: 10px 12px;
+        background: #fff6f3;
+        border: 1px solid #f2c3b6;
+        border-radius: 10px;
+      }
+
+      .panel-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #b06354;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+
+      .metric-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        background: #ffe9e2;
+        color: #9a4a39;
+        margin-right: 8px;
+      }
+
+      .muted {
+        color: #627083;
+        font-size: 12px;
+        margin-right: 6px;
+      }
+
+      .workorder-list.compact {
+        margin-top: 6px;
+        color: #3b4a5a;
+        font-size: 12px;
+      }
+
+      .actions-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .btn-outline {
+        border: 1px solid #e7b1a4;
+        background: #fffaf8;
+        color: #9b4d3d;
+        font-weight: 600;
+        border-radius: 10px;
+        padding: 6px 10px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .latest-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 3px 8px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        background: #ffe9e2;
+        color: #9b4d3d;
+        margin-left: 8px;
+      }
+
+      .accordion {
+        border: 1px solid #f2c3b6;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 14px;
+      }
+
+      .accordion-trigger {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        background: #fff6f3;
+        border: none;
+        font-weight: 700;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: #8f3f2f;
+        cursor: pointer;
+      }
+
+      .accordion-content {
+        background: #fff;
+        padding: 10px 12px 12px;
+      }
+
+      .list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 6px;
+        font-size: 13px;
+        color: #3b4a5a;
+      }
+
+      .spacer {
+        height: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h1>Work Order Popup Options</h1>
+      <p>Three layout patterns for work orders inside the property popup.</p>
+
+      <div class="option-grid">
+        <section class="option-card">
+          <div class="option-title">Option A: Inline summary + expand</div>
+          <div class="icon-popup multiple">
+            <div class="popup-banner multiple">
+              <span class="banner-title">Property Details</span>
+              <span class="badge-header multiple"><span class="dot"></span>Multiple Visits</span>
+              <button type="button" class="popup-close" aria-label="Close popup">&times;</button>
+            </div>
+            <div class="popup-body">
+              <div class="info-section">
+                <div class="info-icon location">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </div>
+                <div class="info-content">
+                  <div class="info-label">Address</div>
+                  <div class="info-value">20 Roman Way, London, SE15 2JZ</div>
+                </div>
+              </div>
+
+              <div class="info-section">
+                <div class="info-icon visits">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18 20V10" />
+                    <path d="M12 20V4" />
+                    <path d="M6 20v-6" />
+                  </svg>
+                </div>
+                <div class="info-content">
+                  <div class="info-label">Work Orders</div>
+                  <div class="info-value">WO-100015, WO-100065</div>
+                  <button class="link subtle" type="button">+3 more</button>
+
+                  <div class="expand-panel">
+                    <div class="panel-title">All Work Orders</div>
+                    <div class="chip-row">
+                      <span class="chip">WO-100015</span>
+                      <span class="chip">WO-100065</span>
+                      <span class="chip">WO-100066</span>
+                      <span class="chip">WO-100120</span>
+                      <span class="chip">WO-100244</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="info-section">
+                <div class="info-icon visits">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18 20V10" />
+                    <path d="M12 20V4" />
+                    <path d="M6 20v-6" />
+                  </svg>
+                </div>
+                <div class="info-content">
+                  <div class="info-label">Total Visits</div>
+                  <div class="info-value highlight">5</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="option-card">
+          <div class="option-title">Option B: Summary + actions</div>
+          <div class="icon-popup multiple">
+            <div class="popup-banner multiple">
+              <span class="banner-title">Property Details</span>
+              <span class="badge-header multiple"><span class="dot"></span>Multiple Visits</span>
+              <button type="button" class="popup-close" aria-label="Close popup">&times;</button>
+            </div>
+            <div class="popup-body">
+              <div class="info-section">
+                <div class="info-icon location">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </div>
+                <div class="info-content">
+                  <div class="info-label">Address</div>
+                  <div class="info-value">20 Roman Way, London, SE15 2JZ</div>
+                </div>
+              </div>
+
+              <div class="info-section">
+                <div class="info-icon visits">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18 20V10" />
+                    <path d="M12 20V4" />
+                    <path d="M6 20v-6" />
+                  </svg>
+                </div>
+                <div class="info-content">
+                  <div class="info-label">Work Orders</div>
+                  <div class="info-value">
+                    <span class="metric-pill">5 total</span>
+                    <span class="muted">Latest:</span> WO-100244
+                  </div>
+                  <div class="workorder-list compact">WO-100244 · WO-100120 · WO-100066</div>
+                  <div class="actions-row">
+                    <button class="btn-outline" type="button">View all</button>
+                    <button class="btn-outline" type="button">Copy list</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="info-section">
+                <div class="info-icon visits">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18 20V10" />
+                    <path d="M12 20V4" />
+                    <path d="M6 20v-6" />
+                  </svg>
+                </div>
+                <div class="info-content">
+                  <div class="info-label">Total Visits</div>
+                  <div class="info-value highlight">5</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="option-card">
+          <div class="option-title">Option C: Accordion list</div>
+          <div class="icon-popup multiple">
+            <div class="popup-banner multiple">
+              <span class="banner-title">Property Details</span>
+              <span class="badge-header multiple"><span class="dot"></span>Multiple Visits</span>
+              <button type="button" class="popup-close" aria-label="Close popup">&times;</button>
+            </div>
+            <div class="popup-body">
+              <div class="info-section">
+                <div class="info-icon location">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </div>
+                <div class="info-content">
+                  <div class="info-label">Address</div>
+                  <div class="info-value">20 Roman Way, London, SE15 2JZ</div>
+                </div>
+              </div>
+
+              <div class="accordion">
+                <button class="accordion-trigger" type="button" aria-expanded="true">
+                  Work Orders (5)
+                  <span class="accordion-icon">▾</span>
+                </button>
+                <div class="accordion-content">
+                  <ul class="list">
+                    <li>WO-100015</li>
+                    <li>WO-100065</li>
+                    <li>WO-100066</li>
+                    <li>WO-100120</li>
+                    <li>WO-100244</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="info-section">
+                <div class="info-icon visits">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18 20V10" />
+                    <path d="M12 20V4" />
+                    <path d="M6 20v-6" />
+                  </svg>
+                </div>
+                <div class="info-content">
+                  <div class="info-label">Total Visits</div>
+                  <div class="info-value highlight">5</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="option-card">
+          <div class="option-title">Option D: Latest summary + accordion</div>
+          <div class="icon-popup multiple">
+            <div class="popup-banner multiple">
+              <span class="banner-title">Property Details</span>
+              <span class="badge-header multiple"><span class="dot"></span>Multiple Visits</span>
+              <button type="button" class="popup-close" aria-label="Close popup">&times;</button>
+            </div>
+            <div class="popup-body">
+              <div class="info-section">
+                <div class="info-icon location">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </div>
+                <div class="info-content">
+                  <div class="info-label">Address</div>
+                  <div class="info-value">20 Roman Way, London, SE15 2JZ</div>
+                </div>
+              </div>
+
+              <div class="info-section">
+                <div class="info-icon visits">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18 20V10" />
+                    <path d="M12 20V4" />
+                    <path d="M6 20v-6" />
+                  </svg>
+                </div>
+                <div class="info-content">
+                  <div class="info-label">Total Visits</div>
+                  <div class="info-value highlight">5</div>
+                </div>
+              </div>
+
+              <div class="info-section">
+                <div class="info-icon work-orders">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9 4h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+                    <path d="M9 2h6v4H9z" />
+                    <path d="M10 10h6" />
+                    <path d="M10 14h6" />
+                    <path d="M10 18h4" />
+                  </svg>
+                </div>
+                <div class="info-content">
+                  <div class="info-label">Work Orders</div>
+                  <div class="info-value">
+                    <span class="metric-pill">5 total</span>
+                    <span class="muted">Latest:</span> WO-100244 · 14 Jan 2025
+                  </div>
+                  <div class="accordion">
+                    <button class="accordion-trigger" type="button" aria-expanded="true">
+                      Work Orders (5)
+                      <span class="accordion-icon">▾</span>
+                    </button>
+                    <div class="accordion-content">
+                      <ul class="list">
+                        <li>WO-100244 · 14 Jan 2025 <span class="latest-pill">Latest</span></li>
+                        <li>WO-100120 · 12 Jan 2025</li>
+                        <li>WO-100066 · 08 Jan 2025</li>
+                        <li>WO-100065 · 05 Jan 2025</li>
+                        <li>WO-100015 · 02 Jan 2025</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>

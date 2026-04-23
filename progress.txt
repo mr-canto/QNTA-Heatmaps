@@ -1,8 +1,20 @@
 # Ralph Progress Log
-Started: 2026-01-17
+Started: 2026-01-22
+Project: PocketBase Migration
+Branch: main (new project folder)
 ---
 
 ## Codebase Patterns
 [This section will be populated as patterns are discovered]
+
+---
+
+## PRD Notes
+- 22 user stories total (US-000 through US-021)
+- US-000 is prerequisite verification - if it fails, manual setup incomplete
+- Supabase package kept until US-018 (strangler fig pattern)
+- PocketBase batch API via pb.createBatch() - must be enabled in Dashboard > Settings
+- PocketBase SDK supports CommonJS via require('pocketbase/cjs') - no need for .mjs
+- All stories include "Typecheck passes" criterion
 
 ---

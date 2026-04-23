@@ -1,22 +1,14 @@
 /**
  * Database Types for Supabase
  *
- * This file contains TypeScript type definitions generated from your Supabase database schema.
+ * This file contains TypeScript type definitions for the QNTA Heatmap database schema.
  * These types enable type-safe queries, autocompletion, and better developer experience.
  *
- * IMPORTANT: This is a placeholder file. To generate the actual types from your database:
+ * To regenerate from local database (requires Supabase to be running):
+ *   npm run gen:types
  *
- * For local development (requires Supabase to be running):
- *   npx supabase gen types typescript --local > src/types/database.types.ts
- *
- * For remote/production database:
- *   npx supabase gen types typescript --project-id "your-project-id" > src/types/database.types.ts
- *
- * You can also use the npm script:
- *   npm run gen:types        # For local database
- *   npm run gen:types:remote # For remote database (set SUPABASE_PROJECT_ID in .env)
- *
- * Re-run this command whenever you make schema changes to keep types in sync.
+ * To regenerate from remote/production database:
+ *   npm run gen:types:remote
  */
 
 export type Json =
@@ -30,7 +22,129 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      // Add your table types here after running supabase gen types
+      imports: {
+        Row: {
+          id: string;
+          uploaded_by: string;
+          uploaded_at: string;
+          filename: string;
+          record_count: number;
+          is_current: boolean;
+          status: "pending" | "processing" | "completed" | "failed";
+        };
+        Insert: {
+          id?: string;
+          uploaded_by: string;
+          uploaded_at?: string;
+          filename: string;
+          record_count?: number;
+          is_current?: boolean;
+          status?: "pending" | "processing" | "completed" | "failed";
+        };
+        Update: {
+          id?: string;
+          uploaded_by?: string;
+          uploaded_at?: string;
+          filename?: string;
+          record_count?: number;
+          is_current?: boolean;
+          status?: "pending" | "processing" | "completed" | "failed";
+        };
+        Relationships: [
+          {
+            foreignKeyName: "imports_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      properties: {
+        Row: {
+          id: string;
+          import_id: string;
+          address: string;
+          postcode: string;
+          outcode: string;
+          lat: number;
+          lon: number;
+          visit_count: number;
+        };
+        Insert: {
+          id?: string;
+          import_id: string;
+          address: string;
+          postcode: string;
+          outcode: string;
+          lat: number;
+          lon: number;
+          visit_count?: number;
+        };
+        Update: {
+          id?: string;
+          import_id?: string;
+          address?: string;
+          postcode?: string;
+          outcode?: string;
+          lat?: number;
+          lon?: number;
+          visit_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "properties_import_id_fkey";
+            columns: ["import_id"];
+            isOneToOne: false;
+            referencedRelation: "imports";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      outcode_stats: {
+        Row: {
+          id: string;
+          import_id: string;
+          outcode: string;
+          area_name: string;
+          total_visits: number;
+          property_count: number;
+          multi_visit_count: number;
+          lat: number;
+          lon: number;
+        };
+        Insert: {
+          id?: string;
+          import_id: string;
+          outcode: string;
+          area_name: string;
+          total_visits?: number;
+          property_count?: number;
+          multi_visit_count?: number;
+          lat: number;
+          lon: number;
+        };
+        Update: {
+          id?: string;
+          import_id?: string;
+          outcode?: string;
+          area_name?: string;
+          total_visits?: number;
+          property_count?: number;
+          multi_visit_count?: number;
+          lat?: number;
+          lon?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "outcode_stats_import_id_fkey";
+            columns: ["import_id"];
+            isOneToOne: false;
+            referencedRelation: "imports";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -49,7 +163,7 @@ export type Database = {
 
 /**
  * Helper types for easier access to table row types.
- * Usage: Tables<'your_table'> instead of Database['public']['Tables']['your_table']['Row']
+ * Usage: Tables<'imports'> instead of Database['public']['Tables']['imports']['Row']
  */
 export type Tables<
   PublicTableNameOrOptions extends
@@ -130,3 +244,18 @@ export type Enums<
   : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
   ? Database["public"]["Enums"][PublicEnumNameOrOptions]
   : never;
+
+/**
+ * Convenience type aliases for direct table access
+ */
+export type Import = Tables<"imports">;
+export type ImportInsert = TablesInsert<"imports">;
+export type ImportUpdate = TablesUpdate<"imports">;
+
+export type Property = Tables<"properties">;
+export type PropertyInsert = TablesInsert<"properties">;
+export type PropertyUpdate = TablesUpdate<"properties">;
+
+export type OutcodeStat = Tables<"outcode_stats">;
+export type OutcodeStatInsert = TablesInsert<"outcode_stats">;
+export type OutcodeStatUpdate = TablesUpdate<"outcode_stats">;
