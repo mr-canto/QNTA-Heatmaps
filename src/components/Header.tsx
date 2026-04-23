@@ -42,12 +42,13 @@ export function Header() {
     };
 
     updateHeaderHeight();
-    window.addEventListener("resize", updateHeaderHeight);
+    const resizeObserver = new ResizeObserver(updateHeaderHeight);
+    resizeObserver.observe(header);
 
     return () => {
-      window.removeEventListener("resize", updateHeaderHeight);
+      resizeObserver.disconnect();
     };
-  }, [extras]);
+  }, []);
 
   return (
     <header

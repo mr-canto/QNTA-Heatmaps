@@ -741,6 +741,7 @@ export default function HeatmapPage() {
             />
             {searchTerm && (
               <button
+                type="button"
                 onClick={() => setSearchTerm("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8996a5] hover:text-[#627083]"
               >

@@ -13,11 +13,22 @@ export default function HeatmapStatsHeader({
   variant = "header",
 }: HeatmapStatsHeaderProps) {
   const stats = useMemo(() => {
-    const total = properties.length;
-    const singleVisit = properties.filter((p) => p.visit_count === 1).length;
-    const multiVisit = properties.filter((p) => p.visit_count > 1).length;
+    let singleVisit = 0;
+    let multiVisit = 0;
 
-    return { total, singleVisit, multiVisit };
+    for (const property of properties) {
+      if (property.visit_count === 1) {
+        singleVisit += 1;
+      } else if (property.visit_count > 1) {
+        multiVisit += 1;
+      }
+    }
+
+    return {
+      total: properties.length,
+      singleVisit,
+      multiVisit,
+    };
   }, [properties]);
 
   const isTablet = variant === "tablet";
