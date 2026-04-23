@@ -463,6 +463,8 @@ export default function HeatmapPage() {
             <button
               type="button"
               aria-label="Open control panel"
+              aria-controls="control-panel"
+              aria-expanded="false"
               onClick={() => {
                 setControlsPanelOpen(true);
                 setInfoPanelOpen(false);
@@ -477,6 +479,8 @@ export default function HeatmapPage() {
             <button
               type="button"
               aria-label="Open visits by area panel"
+              aria-controls="visits-by-area-panel"
+              aria-expanded="false"
               onClick={() => {
                 setInfoPanelOpen(true);
                 setControlsPanelOpen(false);
@@ -500,6 +504,7 @@ export default function HeatmapPage() {
 
       {/* Controls Panel - Left Side */}
       <div
+        id="control-panel"
         style={tabletPanelStyle}
         className={`controls fixed z-[1002] bg-white border border-[#dce3e7] shadow-[0_20px_45px_rgba(15,23,42,0.16)] backdrop-blur-[6px] transition-transform duration-300 ease-out
           ${isTablet
@@ -512,6 +517,7 @@ export default function HeatmapPage() {
         <button
           type="button"
           aria-label="Hide control panel"
+          aria-controls="control-panel"
           onClick={() => setControlsPanelOpen(false)}
           style={hideButtonStyle}
           className={`${hideButtonClassName} right-2.5 ${
@@ -742,6 +748,7 @@ export default function HeatmapPage() {
             {searchTerm && (
               <button
                 type="button"
+                aria-label="Clear search"
                 onClick={() => setSearchTerm("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8996a5] hover:text-[#627083]"
               >
@@ -766,6 +773,7 @@ export default function HeatmapPage() {
 
       {/* Info Panel - Right Side (Area Statistics) */}
       <div
+        id="visits-by-area-panel"
         style={isTablet ? tabletPanelStyle : infoPanelStyle}
         className={`info-panel fixed z-[1002] bg-white border border-[#dce3e7] shadow-[0_20px_45px_rgba(15,23,42,0.16)] backdrop-blur-md transition-transform duration-300 ease-out overflow-hidden flex flex-col
           ${isTablet
@@ -778,6 +786,7 @@ export default function HeatmapPage() {
         <button
           type="button"
           aria-label="Hide visits by area panel"
+          aria-controls="visits-by-area-panel"
           onClick={() => setInfoPanelOpen(false)}
           style={hideButtonStyle}
           className={`${hideButtonClassName} right-2.5 ${
